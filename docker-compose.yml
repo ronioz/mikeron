@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trades}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trades}
+      POSTGRES_DB: ${POSTGRES_DB:-trades}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Localhost only: lets you run the app or alembic outside Docker.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trades}:${POSTGRES_PASSWORD:-trades}@db:5432/${POSTGRES_DB:-trades}
+      MONTHLY_BUDGET: ${MONTHLY_BUDGET:-30}
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      PRICE_TTL_SECONDS: ${PRICE_TTL_SECONDS:-60}
+    ports:
+      # Reachable from this machine only unless BIND_ADDRESS says otherwise.
+      - "${BIND_ADDRESS:-127.0.0.1}:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
