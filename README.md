@@ -21,6 +21,10 @@ Then open <http://localhost:8000>. The image builds the frontend, database
 migrations run automatically on startup, and your data lives in the `pgdata`
 Docker volume, so it survives restarts and rebuilds.
 
+The sun/moon button in the header switches between the light and dark theme.
+Until you use it, the app follows your device's setting; after that it
+remembers your choice in that browser.
+
 - App: <http://localhost:8000>
 - JSON API docs: <http://localhost:8000/docs>
 - Health check: <http://localhost:8000/healthz>
@@ -175,9 +179,11 @@ frontend/              React + TypeScript app
     types.ts           shapes of the API responses
     format.ts          money, percentages, dates
     deleteTrade.ts     asks before deleting a trade
+    theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours
     useApi.ts          loading data, with periodic refresh
-    components/        layout, trade form, ring chart, stat tiles
+    components/        layout, trade form, ring chart, stat tiles, the journal's
+                       tap-to-open trade lines for phones and narrow windows
     pages/             journal, portfolio, trade report, add / edit
     styles.css
 ```

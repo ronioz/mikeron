@@ -4,9 +4,10 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { Change, PriceNote, SalesTile, StatTile, ValueTile } from "../components/figures";
 import { Loadable } from "../components/Loadable";
+import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
 import { formatMoney, formatShares, formatSignedMoney } from "../format";
-import type { Decimal, Summary, Trade } from "../types";
+import type { Decimal, Summary, Trade, YearTotal } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
 export function Dashboard() {
@@ -98,8 +99,12 @@ function Journal({ summary, trades, reload }: JournalProps) {
         </p>
       )}
 
-      {/* One table for all years so the columns line up from one year to the next. */}
-      <section className="card table-wrap">
+      {/*
+        Wide screens get one table for all years, so the columns line up from one
+        year to the next. Narrower ones, where the table would need sideways
+        scrolling, get the list below instead; styles.css decides which shows.
+      */}
+      <section className="card table-wrap journal-table">
         <table>
           <thead>
             <tr>
@@ -117,25 +122,49 @@ function Journal({ summary, trades, reload }: JournalProps) {
               </th>
             </tr>
           </thead>
-          {summary.years.map(({ year, trade_count: count, bought, sold }) => (
-            <tbody key={year}>
+          {summary.years.map((total) => (
+            <tbody key={total.year}>
               <tr className="year">
                 <th colSpan={10} scope="rowgroup">
-                  {year}{" "}
-                  <small>
-                    {count} {count === 1 ? "trade" : "trades"} · {formatMoney(bought)} bought
-                    {Number(sold) > 0 && ` · ${formatMoney(sold)} sold`}
-                  </small>
+                  {total.year} <YearSummary total={total} />
                 </th>
               </tr>
-              {(byYear.get(year) ?? []).map((trade) => (
+              {(byYear.get(total.year) ?? []).map((trade) => (
                 <TradeRow key={trade.id} trade={trade} onDelete={remove} />
               ))}
             </tbody>
           ))}
         </table>
       </section>
+
+      <div className="journal-list">
+        {summary.years.map((total) => (
+          <section key={total.year} className="year-group">
+            <h2 className="year-heading">
+              {total.year} <YearSummary total={total} />
+            </h2>
+            <ul className="card trade-list">
+              {(byYear.get(total.year) ?? []).map((trade) => (
+                <li key={trade.id}>
+                  <TradeItem trade={trade} onDelete={remove} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </>
+  );
+}
+
+/** "7 trades · $2,292.51 bought · $72.00 sold", after the year in both layouts. */
+function YearSummary({ total }: { total: YearTotal }) {
+  const { trade_count: count, bought, sold } = total;
+  return (
+    <small>
+      {count} {count === 1 ? "trade" : "trades"} · {formatMoney(bought)} bought
+      {Number(sold) > 0 && ` · ${formatMoney(sold)} sold`}
+    </small>
   );
 }
 

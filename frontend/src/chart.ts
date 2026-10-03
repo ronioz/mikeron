@@ -10,15 +10,17 @@ export interface Slice {
   color: string;
 }
 
-// A ring stops being readable at a glance beyond about six slices.
-const MAX_SLICES = 6;
+// The chart is drawn in shades of one colour, and only about four shades stay
+// easy to tell apart (see the --series-* notes in styles.css).
+const MAX_SLICES = 4;
 export const OTHER = "other";
 
 /**
  * Decides what the ring chart shows.
  *
- * Up to six holdings are drawn individually. With more, the five largest are
- * kept and the rest are combined into "Other".
+ * Up to four holdings are drawn individually. With more, the three largest are
+ * kept and the rest are combined into "Other". The table under the chart still
+ * lists every holding.
  *
  * Colours are handed out in the order holdings were first bought, and slices
  * are drawn in that same order. That way a ticker keeps its colour when prices

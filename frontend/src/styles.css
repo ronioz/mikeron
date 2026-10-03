@@ -1,49 +1,70 @@
+/*
+ * Colours, in the plain style of finance sites: black, white and greys, with
+ * green and red as the only colours, kept for money (gains and losses, buys
+ * and sells, and the warnings about them). The light theme is creamy white and
+ * black; the dark theme is near-black with navy cards.
+ *
+ * The theme is the data-theme attribute on <html>, set before the page draws
+ * (index.html) and changed by the switch in the header (theme.ts).
+ *
+ * Every text colour was checked for 4.5:1 contrast against the backgrounds it
+ * appears on, in both themes. Check again after changing one.
+ */
 :root {
-  color-scheme: light dark;
-  --bg: #f5f6f8;
-  --surface: #ffffff;
-  --text: #1a1d21;
-  --muted: #667085;
-  --border: #e2e5ea;
-  --accent: #1f6f50;
-  --accent-text: #ffffff;
-  --gain: #1a7f4b;
-  --loss: #c0362c;
+  color-scheme: light;
+
+  --bg: #f3f0e8;
+  --surface: #fcfaf5;
+  /* A light fill inside cards: open trades, fields, the table's year rows. */
+  --tint: #f6f3ec;
+  --text: #1b1a17;
+  --muted: #5f5c55;
+  --border: #e2ddd2;
+  --accent: #1b1a17;
+  --accent-text: #fcfaf5;
+  /* Links are the text colour, so an underline marks them. */
+  --link-line: #a39f95;
+  --gain: #1d7a45;
+  --loss: #b0362c;
 
   /*
-   * Chart colours. The order is part of the design: each colour was checked
-   * against its neighbours for colour-blind viewers, so keep the sequence and
-   * give the next holding the next number rather than inventing new colours.
+   * Chart colours: shades of the text colour, darkest first. Only about four
+   * shades stay easy to tell apart, so the ring shows at most four slices
+   * (see chart.ts).
    */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-other: #6b6a66;
+  --series-1: #1b1a17;
+  --series-2: #5f5c55;
+  --series-3: #9b978e;
+  --series-4: #cfcac0;
+  /* Never shown together with series 4: "Other" takes its place. */
+  --series-other: var(--series-4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111417;
-    --surface: #1a1e23;
-    --text: #e8eaed;
-    --muted: #9aa4b2;
-    --border: #2b313a;
-    --accent: #3fae7d;
-    --accent-text: #0c1512;
-    --gain: #4cc38a;
-    --loss: #f0766b;
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-other: #a8a79f;
-  }
+  /* Near-black, with cards in navy darkened towards it. */
+  --bg: #111417;
+  --surface: #1f2433;
+  --tint: #282d43;
+  --text: #efebe3;
+  --muted: #a6abb8;
+  --border: #3a4167;
+  --accent: #efebe3;
+  --accent-text: #111417;
+  --link-line: #6f7899;
+  --gain: #4cc38a;
+  --loss: #f0766b;
+
+  --series-1: #efebe3;
+  --series-2: #b5b1a9;
+  --series-3: #7f7c76;
+  --series-4: #4f4d4a;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  color: var(--text);
 }
 
 * {
@@ -88,6 +109,28 @@ main {
   font-size: 1.2rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* The light/dark switch: a square button holding an icon. */
+.icon-button {
+  display: inline-flex;
+  padding: 8px;
+}
+
+.icon-button svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .site-nav {
@@ -197,6 +240,11 @@ h1 {
   color: var(--loss);
 }
 
+.button.small {
+  padding: 6px 14px;
+  font-size: 0.9rem;
+}
+
 /* A button that reads as a link, for a small action inside a line of text. */
 .link-button {
   padding: 0;
@@ -256,11 +304,30 @@ h1 {
   font-weight: 600;
 }
 
+/* Drawn by hand, as the browser's own bar brings colours from outside the palette. */
 progress {
   width: 100%;
   height: 6px;
   margin-top: 8px;
-  accent-color: var(--accent);
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: var(--border);
+  appearance: none;
+}
+
+progress::-webkit-progress-bar {
+  background: var(--border);
+}
+
+progress::-webkit-progress-value {
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+progress::-moz-progress-bar {
+  border-radius: 3px;
+  background: var(--accent);
 }
 
 .note-line {
@@ -302,7 +369,7 @@ tbody:last-child tr:last-child td {
 }
 
 .year th {
-  background: var(--bg);
+  background: var(--tint);
   color: var(--text);
   font-size: 1rem;
   font-weight: 700;
@@ -323,7 +390,12 @@ tbody:last-child tr:last-child td {
   text-decoration: none;
 }
 
-/* "Buy" or "Sell" beside a trade. Sales get the stronger outline so they stand out in a list. */
+a.ticker {
+  text-decoration: underline 2px var(--link-line);
+  text-underline-offset: 3px;
+}
+
+/* "Buy" or "Sell" beside a trade, in the toned-down green and red. */
 .side-tag {
   display: inline-block;
   padding: 0 8px;
@@ -336,9 +408,14 @@ tbody:last-child tr:last-child td {
   vertical-align: 0.1em;
 }
 
+.side-tag.buy {
+  border-color: color-mix(in srgb, var(--gain) 45%, var(--surface));
+  color: var(--gain);
+}
+
 .side-tag.sell {
-  border-color: var(--text);
-  color: var(--text);
+  border-color: color-mix(in srgb, var(--loss) 45%, var(--surface));
+  color: var(--loss);
 }
 
 /* A smaller line under a cell's main figure: a percentage, shares left, the trade type. */
@@ -399,6 +476,143 @@ tbody:last-child tr:last-child td {
   text-align: center;
 }
 
+/*
+ * Journal list. Below the width the journal table needs, each trade becomes a
+ * line that opens to show the rest, so nothing scrolls sideways.
+ */
+
+.journal-list {
+  display: none;
+}
+
+@media (max-width: 1199px) {
+  .journal-table {
+    display: none;
+  }
+
+  .journal-list {
+    display: block;
+  }
+}
+
+.year-group {
+  margin-top: 20px;
+}
+
+.year-heading {
+  margin: 0 2px 8px;
+  font-size: 1rem;
+}
+
+.trade-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.trade-list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.trade-item summary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.trade-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.trade-item summary:hover,
+.trade-item[open] summary {
+  background: var(--tint);
+}
+
+.trade-item summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* A chevron that points down when closed and up when open. */
+.trade-item summary::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 150ms;
+}
+
+.trade-item[open] summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.item-title {
+  white-space: nowrap;
+}
+
+.item-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.item-amount {
+  font-weight: 650;
+}
+
+.item-body {
+  padding: 4px 14px 16px;
+  background: var(--tint);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0 0 14px;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-body h3 {
+  margin: 0 0 2px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.item-body .prose {
+  margin: 0 0 14px;
+}
+
 /* Trade report */
 
 .note {
@@ -446,7 +660,7 @@ tbody:last-child tr:last-child td {
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--tint);
 }
 
 .side-choice label {
@@ -479,6 +693,14 @@ tbody:last-child tr:last-child td {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
+.side-choice input[value="buy"]:checked + span {
+  color: var(--gain);
+}
+
+.side-choice input[value="sell"]:checked + span {
+  color: var(--loss);
+}
+
 .side-choice input:focus-visible + span {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -501,7 +723,7 @@ textarea {
   padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--tint);
   color: var(--text);
   font: inherit;
 }
@@ -635,7 +857,7 @@ textarea {
 
 .legend li.active,
 .legend li:focus-visible {
-  background: var(--bg);
+  background: var(--tint);
   outline: none;
 }
 
@@ -670,7 +892,7 @@ textarea {
     flex-basis: 100%;
   }
 
-  .site-header .button {
+  .header-actions {
     margin-left: auto;
   }
 
@@ -685,9 +907,5 @@ textarea {
   /* A tile left alone on the last row takes the full width instead of half. */
   .stats > :last-child:nth-child(odd) {
     grid-column: 1 / -1;
-  }
-
-  .why span {
-    -webkit-line-clamp: 1;
   }
 }

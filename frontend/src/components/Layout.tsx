@@ -1,5 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router";
 
+import { ThemeToggle } from "./ThemeToggle";
+
 export function Layout() {
   return (
     <>
@@ -13,9 +15,12 @@ export function Layout() {
           </NavLink>
           <NavLink to="/portfolio">Portfolio</NavLink>
         </nav>
-        <Link className="button" to="/trades/new">
-          Add trade
-        </Link>
+        <div className="header-actions">
+          <ThemeToggle />
+          <Link className="button" to="/trades/new">
+            Add trade
+          </Link>
+        </div>
       </header>
       <main>
         <Outlet />

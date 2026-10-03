@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Tints a phone browser's address bar to match the page; theme.ts keeps it in step. -->
+    <meta name="theme-color" content="#111417" />
+    <script>
+      // Pick the theme before anything draws, so the page never flashes the
+      // wrong one: the one chosen with the header switch, else the device's.
+      // Same rule as src/theme.ts.
+      (function () {
+        var chosen = null;
+        try {
+          chosen = localStorage.getItem("theme");
+        } catch (error) {}
+        var dark = chosen ? chosen === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
     <title>Trade Journal</title>
   </head>
   <body>
