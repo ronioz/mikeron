@@ -2,6 +2,8 @@
 
 Shares of a ticker are sold oldest first (first in, first out). That decides
 how much of every purchase is still held and what each sale gained or lost.
+Gains are after fees: shares carry their part of the fee paid to buy them, and
+a sale's own fee comes off what it brought in.
 Nothing here is stored: it is recomputed from the trades whenever it is needed,
 so editing or deleting a trade can never leave it out of date.
 """
@@ -33,29 +35,39 @@ class OversoldError(Exception):
         self.direct = False
 
 
+def _fee_share(trade: Trade, shares: Decimal) -> Decimal:
+    """The part of a trade's fee that goes with some of its shares."""
+    return trade.fee * shares / trade.shares
+
+
 @dataclass
 class Lot:
     """One purchase and what has happened to its shares since."""
 
     trade: Trade
     remaining: Decimal
-    # Gain made on the part of this purchase that has been sold.
+    # Gain made on the part of this purchase that has been sold, after fees.
     realized: Decimal = ZERO
 
     @property
     def sold(self) -> Decimal:
         return self.trade.shares - self.remaining
 
+    def cost_of(self, shares: Decimal) -> Decimal:
+        """What some of this purchase's shares cost, with their part of its fee."""
+        return shares * self.trade.price + _fee_share(self.trade, shares)
+
 
 @dataclass
 class Sale:
     trade: Trade
-    # What the shares sold had cost to buy.
+    # What the shares sold had cost to buy, with their part of the purchases' fees.
     cost: Decimal = ZERO
 
     @property
     def gain(self) -> Decimal:
-        return self.trade.amount - self.cost
+        # What the sale brought in after its own fee, against what those shares cost.
+        return self.trade.net_amount - self.cost
 
 
 @dataclass
@@ -98,9 +110,12 @@ def build_ledger(trades: Iterable[Trade]) -> Ledger:
             while needed > 0:
                 lot = held[0]
                 used = min(lot.remaining, needed)
+                cost = lot.cost_of(used)
+                # What these shares brought in, after their part of the sale's fee.
+                proceeds = used * trade.price - _fee_share(trade, used)
                 lot.remaining -= used
-                lot.realized += used * (trade.price - lot.trade.price)
-                sale.cost += used * lot.trade.price
+                lot.realized += proceeds - cost
+                sale.cost += cost
                 needed -= used
                 if lot.remaining == 0:
                     held.popleft()

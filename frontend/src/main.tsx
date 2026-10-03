@@ -11,7 +11,6 @@ import { TradeEdit, TradeNew } from "./pages/TradeEditor";
 // The fonts ship with the app rather than coming from a font service.
 import "@fontsource-variable/instrument-sans/wght.css";
 import "@fontsource/instrument-serif/400.css";
-import "@fontsource/instrument-serif/400-italic.css";
 import "./styles.css";
 
 const root = document.getElementById("root");

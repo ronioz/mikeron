@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import { api } from "../api";
-import { Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
+import { isMoney, reinvested } from "../cash";
+import { CashStat, Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
@@ -14,7 +15,7 @@ export function Dashboard() {
   const state = useApi(() => Promise.all([api.getSummary(), api.listTrades()]), [], REFRESH_MS);
   return (
     <>
-      <title>Trade Journal</title>
+      <title>Mikeron</title>
       {/* The tab in the header already says where this is; the heading is for screen readers. */}
       <h1 className="visually-hidden">Journal</h1>
       <Loadable state={state}>
@@ -84,12 +85,20 @@ function Journal({ summary, trades, reload }: JournalProps) {
           <span className="value">{formatMoney(summary.invested)}</span>
         </Stat>
         {summary.sale_count > 0 && <SalesStat totals={summary} />}
+        {summary.sale_count > 0 && <CashStat totals={summary} />}
         <Stat label="Trades">
           <span className="value">{summary.trade_count}</span>
+          {isMoney(summary.fees) && (
+            <span className="sub">{formatMoney(summary.fees)} in fees</span>
+          )}
         </Stat>
+        {/* New money only: buying with cash from sales doesn't spend the plan. */}
         <Stat label="This month">
           <span className="value">{formatMoney(summary.this_month)}</span>
           <span className="sub">of {formatMoney(summary.monthly_budget)} planned</span>
+          {isMoney(summary.this_month_from_cash) && (
+            <span className="sub">plus {formatMoney(summary.this_month_from_cash)} reinvested</span>
+          )}
           {budget > 0 && <progress value={Number(summary.this_month)} max={budget} />}
         </Stat>
       </section>
@@ -159,13 +168,14 @@ function Journal({ summary, trades, reload }: JournalProps) {
   );
 }
 
-/** "7 trades · $2,292.51 bought · $72.00 sold", after the year in both layouts. */
+/** "7 trades · $2,292.51 bought · $72.00 sold · $4.50 in fees", after the year in both layouts. */
 function YearSummary({ total }: { total: YearTotal }) {
-  const { trade_count: count, bought, sold } = total;
+  const { trade_count: count, bought, sold, fees } = total;
   return (
     <small>
       {count} {count === 1 ? "trade" : "trades"} · {formatMoney(bought)} bought
       {Number(sold) > 0 && ` · ${formatMoney(sold)} sold`}
+      {isMoney(fees) && ` · ${formatMoney(fees)} in fees`}
     </small>
   );
 }
@@ -197,6 +207,29 @@ function SaleResult({ trade }: { trade: Trade }) {
       <span className="second-line">
         <Change percent={percent} />
       </span>
+    </>
+  );
+}
+
+/**
+ * Under a trade's amount: its fee (added to a purchase, taken from a sale), and
+ * how much of a purchase was paid with cash from sales. One line each.
+ */
+function AmountNotes({ trade }: { trade: Trade }) {
+  const part = reinvested(trade);
+  return (
+    <>
+      {isMoney(trade.fee) && (
+        <small className="second-line">
+          {trade.side === "sell" ? "−" : "+"}
+          {formatMoney(trade.fee)} fee
+        </small>
+      )}
+      {part && (
+        <small className="second-line">
+          {part.all ? "reinvested" : `${formatMoney(part.amount)} reinvested`}
+        </small>
+      )}
     </>
   );
 }
@@ -234,7 +267,10 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) 
         <SharesLeft trade={trade} />
       </td>
       <td className="number">{formatMoney(trade.price)}</td>
-      <td className="number">{formatMoney(trade.amount)}</td>
+      <td className="number">
+        {formatMoney(trade.amount)}
+        <AmountNotes trade={trade} />
+      </td>
       <td className="number">
         {sale ? (
           <SaleResult trade={trade} />

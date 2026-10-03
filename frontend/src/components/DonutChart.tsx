@@ -88,7 +88,7 @@ export function DonutChart({ slices, basis, total }: Props) {
     );
   // Names beside the slices need room around the ring; without them, crop to the ring.
   const viewBox = labelled ? `0 0 ${WIDTH} ${HEIGHT}` : `${CX - 96} ${CY - 96} 192 192`;
-  const description = `Share of portfolio by ${basis}: ${slices
+  const description = `Share of holdings by ${basis}: ${slices
     .map((slice) => `${slice.label} ${formatPercent(slice.share)}`)
     .join(", ")}`;
 

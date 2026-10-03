@@ -2,8 +2,11 @@ import { type FormEvent, type InputHTMLAttributes, type ReactNode, useState } fr
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "../api";
-import { formatShares, trimZeros } from "../format";
-import type { Position, Side, Trade, TradeInput } from "../types";
+import { formatMoney, formatShares, trimZeros } from "../format";
+import type { Decimal, Position, Side, Trade, TradeInput } from "../types";
+
+/** Every field typed into: all but the Paid with switch. */
+type TextField = Exclude<keyof TradeInput, "paid_from_cash">;
 
 interface FieldProps {
   name: keyof TradeInput;
@@ -44,7 +47,7 @@ const NUMBER: InputHTMLAttributes<HTMLInputElement> = {
   autoComplete: "off",
 };
 
-const NUMBER_FIELDS = ["price", "shares", "take_profit", "stop_loss"] as const;
+const NUMBER_FIELDS = ["price", "shares", "take_profit", "stop_loss", "fee"] as const;
 
 /** Keypads in comma-decimal regions only offer a comma, so "71,05" is accepted as 71.05. */
 function withDecimalPoints(values: TradeInput): TradeInput {
@@ -54,17 +57,25 @@ function withDecimalPoints(values: TradeInput): TradeInput {
 }
 
 /**
- * What gets sent. A sale has no plan, so the hidden plan fields are cleared
- * rather than sent along, where a leftover typo would fail without a visible field.
+ * What gets sent. A sale has no plan and isn't paid for, so the hidden purchase
+ * fields are cleared rather than sent along, where a leftover typo would fail
+ * without a visible field.
  */
 function toPayload(values: TradeInput): TradeInput {
   const input = withDecimalPoints(values);
-  return input.side === "sell" ? { ...input, forecast: "", take_profit: "", stop_loss: "" } : input;
+  return input.side === "sell"
+    ? { ...input, forecast: "", take_profit: "", stop_loss: "", paid_from_cash: false }
+    : input;
 }
 
 const SIDES: { side: Side; label: string }[] = [
   { side: "buy", label: "Buy" },
   { side: "sell", label: "Sell" },
+];
+
+const FUNDING: { fromCash: boolean; label: string }[] = [
+  { fromCash: false, label: "New money" },
+  { fromCash: true, label: "Cash from sales" },
 ];
 
 interface Props {
@@ -76,10 +87,12 @@ interface Props {
   returnTo?: string;
   /** What is held now, to help fill in a sale. Leave out when editing a saved trade. */
   holdings?: Position[];
+  /** Cash from sales right now, to say how much a new purchase can use. Leave out when editing. */
+  cash?: Decimal;
   save: (input: TradeInput) => Promise<Trade>;
 }
 
-export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save }: Props) {
+export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, cash, save }: Props) {
   const navigate = useNavigate();
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -103,11 +116,11 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save
     }
   }
 
-  const set = (name: keyof TradeInput, value: string) =>
+  const set = (name: TextField, value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
 
   // Wires an input to its entry in `values`.
-  const bind = (name: keyof TradeInput) => ({
+  const bind = (name: TextField) => ({
     id: name,
     name,
     value: values[name],
@@ -134,6 +147,19 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save
     }
   }
 
+  // For a purchase: what its money counts as, and how much cash from sales it can use.
+  let fundingHint = "Counts toward your monthly plan.";
+  if (values.paid_from_cash) {
+    if (cash === undefined) {
+      fundingHint =
+        "Uses the cash from sales made up to its date. Anything that cash can't cover counts as new money.";
+    } else if (Number(cash) > 0) {
+      fundingHint = `You have ${formatMoney(cash)} from sales. Anything above that counts as new money.`;
+    } else {
+      fundingHint = "You have no cash from sales right now, so this counts as new money.";
+    }
+  }
+
   return (
     <>
       <div className="page-head">
@@ -141,7 +167,7 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save
       </div>
 
       <form className="trade-form" onSubmit={submit}>
-        <fieldset className="side-choice">
+        <fieldset className="segmented">
           <legend className="visually-hidden">Buy or sell</legend>
           {SIDES.map(({ side, label }) => (
             <label key={side}>
@@ -197,7 +223,41 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save
               required
             />
           </Field>
+          <Field
+            name="fee"
+            label="Fee ($)"
+            optional
+            hint={
+              selling
+                ? "Your broker's commission, taken from what the sale brings in"
+                : "Your broker's commission, added to what the shares cost"
+            }
+            error={errors.fee}
+          >
+            <input {...bind("fee")} {...NUMBER} />
+          </Field>
         </div>
+
+        {!selling && (
+          <fieldset className="field choice-field">
+            <legend>Paid with</legend>
+            <div className="segmented">
+              {FUNDING.map(({ fromCash, label }) => (
+                <label key={label}>
+                  <input
+                    type="radio"
+                    name="paid_from_cash"
+                    value={fromCash ? "cash" : "new"}
+                    checked={values.paid_from_cash === fromCash}
+                    onChange={() => setValues((current) => ({ ...current, paid_from_cash: fromCash }))}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="hint">{fundingHint}</p>
+          </fieldset>
+        )}
 
         {!selling && (
           <div className="field-row">

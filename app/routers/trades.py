@@ -16,9 +16,11 @@ router = APIRouter(prefix="/trades", tags=["trades"])
 
 
 def _valued(trade: Trade, db: Session, quotes: QuoteCache) -> TradeOut:
-    # What happened to a purchase depends on later sales of the same ticker.
-    related = crud.list_trades(db, ticker=trade.ticker)
-    valued = value_trades(related, quotes.get(db, [trade.ticker]))
+    # What happened to a purchase depends on the later sales of its ticker, and
+    # the cash it could use on every earlier sale, so the whole journal counts.
+    # Only this trade's price is needed, though.
+    every = crud.list_trades(db)
+    valued = value_trades(every, quotes.get(db, [trade.ticker]))
     return next(out for out in valued if out.id == trade.id)
 
 

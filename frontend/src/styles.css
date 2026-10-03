@@ -3,10 +3,11 @@
  * leads each page, and everything else sits straight on the page, grouped by
  * thin lines rather than boxed in cards.
  *
- * Type: Instrument Serif for display (the name in the header, headline
- * figures, years, and the notes on why a trade was made), Instrument Sans for
- * everything else. The serif has no equal-width digits, so it only sets
- * figures that stand alone; columns of figures use the sans, which has them.
+ * Type: Instrument Serif for words on display only (the name in the header,
+ * page titles, section headings). Every figure and every note on why a trade
+ * was made is in Instrument Sans, like the rest of the text. Large standalone
+ * figures keep the sans's default proportional digits; columns of figures
+ * switch to its equal-width ones (tabular-nums) so they line up.
  *
  * Colour: black, white and greys, with green and red as the only colours,
  * kept for money (gains and losses, buys and sells, and the warnings about
@@ -387,10 +388,10 @@ small.loss {
 }
 
 .hero-figure {
-  margin: 2px 0 0;
-  font-family: var(--font-serif);
+  margin: 4px 0 0;
   font-size: clamp(3.5rem, 2.9rem + 5vw, 6.75rem);
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -435,9 +436,10 @@ small.loss {
 }
 
 .stat .value {
-  font-family: var(--font-serif);
-  font-size: clamp(1.75rem, 1.55rem + 0.6vw, 2.125rem);
-  line-height: 1.15;
+  font-size: clamp(1.5rem, 1.35rem + 0.5vw, 1.875rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .stat .sub small {
@@ -478,7 +480,7 @@ small.loss {
 }
 
 .facts-grid .stat .value {
-  font-size: clamp(1.5rem, 1.4rem + 0.4vw, 1.75rem);
+  font-size: clamp(1.25rem, 1.2rem + 0.3vw, 1.5rem);
 }
 
 @media (min-width: 720px) {
@@ -584,8 +586,9 @@ thead th {
 
 .year-number {
   margin-right: 12px;
-  font-family: var(--font-serif);
-  font-size: 2.25rem;
+  font-size: 1.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   line-height: 1;
 }
 
@@ -675,10 +678,8 @@ a.ticker:hover {
   min-width: 200px;
   overflow: hidden;
   color: var(--text-soft);
-  font-family: var(--font-serif);
-  font-size: 1.0625rem;
-  font-style: italic;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -737,8 +738,8 @@ a.ticker:hover {
 
 .year-heading .year-number {
   margin: 0;
-  font-size: 2rem;
-  line-height: 1.1;
+  font-size: 1.5rem;
+  line-height: 1.2;
 }
 
 .trade-list {
@@ -850,13 +851,10 @@ a.ticker:hover {
 .item-body .prose {
   margin: 0 0 20px;
   color: var(--text-soft);
-  font-family: var(--font-serif);
-  font-size: 1.25rem;
-  font-style: italic;
-  line-height: 1.35;
+  line-height: 1.5;
 }
 
-/* A trade's page: why it was made, and the forecast, set like an entry in a journal. */
+/* A trade's page: why it was made, and the forecast, in larger text than the rest. */
 
 .note {
   max-width: 46rem;
@@ -879,10 +877,8 @@ a.ticker:hover {
 }
 
 .note .prose {
-  font-family: var(--font-serif);
-  font-size: clamp(1.5rem, 1.35rem + 0.7vw, 1.875rem);
-  font-style: italic;
-  line-height: 1.3;
+  font-size: clamp(1.125rem, 1.05rem + 0.4vw, 1.3125rem);
+  line-height: 1.5;
 }
 
 .prose {
@@ -906,8 +902,8 @@ a.ticker:hover {
   gap: 20px;
 }
 
-/* The Buy / Sell switch: two radio buttons drawn as one segmented control. */
-.side-choice {
+/* Radio buttons drawn as one segmented control: Buy or Sell, and how a purchase was paid. */
+.segmented {
   display: inline-flex;
   align-self: flex-start;
   gap: 2px;
@@ -917,12 +913,12 @@ a.ticker:hover {
   border-radius: 999px;
 }
 
-.side-choice label {
+.segmented label {
   position: relative;
 }
 
 /* Not drawn, but still focusable and switched by clicking its label. */
-.side-choice input {
+.segmented input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -932,7 +928,7 @@ a.ticker:hover {
   opacity: 0;
 }
 
-.side-choice span {
+.segmented span {
   display: block;
   min-width: 100px;
   padding: 8px 20px;
@@ -942,21 +938,21 @@ a.ticker:hover {
   cursor: pointer;
 }
 
-.side-choice input:checked + span {
+.segmented input:checked + span {
   background: var(--raised);
   color: var(--text);
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.side-choice input[value="buy"]:checked + span {
+.segmented input[value="buy"]:checked + span {
   color: var(--gain);
 }
 
-.side-choice input[value="sell"]:checked + span {
+.segmented input[value="sell"]:checked + span {
   color: var(--loss);
 }
 
-.side-choice input:focus-visible + span {
+.segmented input:focus-visible + span {
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
@@ -965,6 +961,21 @@ a.ticker:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* A labelled group of choices, such as Paid with. */
+.choice-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-field legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 label {
@@ -1006,12 +1017,9 @@ textarea[aria-invalid="true"] {
   opacity: 1;
 }
 
-/* The notes are written in the journal's serif, as they are shown. */
 textarea {
   resize: vertical;
-  font-family: var(--font-serif);
-  font-size: 1.1875rem;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .upper {
@@ -1107,9 +1115,10 @@ textarea {
 }
 
 .donut-figure {
-  font-family: var(--font-serif);
-  font-size: 1.5rem;
-  line-height: 1.15;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .legend {

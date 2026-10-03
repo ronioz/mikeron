@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
+import { isMoney, reinvested } from "../cash";
 import { formatMoney, formatShares, formatShortDate, formatSignedMoney } from "../format";
 import type { Trade } from "../types";
 import { Change } from "./figures";
@@ -56,13 +57,19 @@ export function TradeItem({ trade, onDelete }: Props) {
   );
 }
 
-/** "2 shares", plus what later sales left of a purchase: "10 shares · 6 left". */
+/**
+ * "2 shares", plus what later sales left of a purchase and whether it was paid
+ * with cash from sales: "10 shares · 6 left · reinvested".
+ */
 function sharesText(trade: Trade): string {
-  const shares = `${formatShares(trade.shares)} ${Number(trade.shares) === 1 ? "share" : "shares"}`;
+  const parts = [`${formatShares(trade.shares)} ${Number(trade.shares) === 1 ? "share" : "shares"}`];
   const left = trade.remaining_shares;
   // Only purchases that have been sold from carry a realised gain.
-  if (trade.realized_gain === null || left === null || trade.side === "sell") return shares;
-  return `${shares} · ${Number(left) === 0 ? "all sold" : `${formatShares(left)} left`}`;
+  if (trade.side === "buy" && trade.realized_gain !== null && left !== null) {
+    parts.push(Number(left) === 0 ? "all sold" : `${formatShares(left)} left`);
+  }
+  if (reinvested(trade)) parts.push("reinvested");
+  return parts.join(" · ");
 }
 
 /** The figure on the right of the closed line: what a sale made, or what a purchase is worth. */
@@ -90,7 +97,7 @@ function Headline({ trade }: { trade: Trade }) {
   const soldOut = trade.remaining_shares !== null && Number(trade.remaining_shares) === 0;
   return (
     <>
-      <span className="item-amount">{formatMoney(trade.amount)}</span>
+      <span className="item-amount">{formatMoney(trade.net_amount)}</span>
       <small>{soldOut ? "all sold" : "paid"}</small>
     </>
   );
@@ -117,6 +124,7 @@ function PriceAndChange({ price, change, missing }: { price: string | null; chan
 
 function PurchaseFacts({ trade }: { trade: Trade }) {
   const left = trade.remaining_shares;
+  const fromSales = reinvested(trade);
   return (
     <>
       <Fact label="Shares">
@@ -126,7 +134,17 @@ function PurchaseFacts({ trade }: { trade: Trade }) {
         )}
       </Fact>
       <Fact label="Buy price">{formatMoney(trade.price)}</Fact>
-      <Fact label="Cost">{formatMoney(trade.amount)}</Fact>
+      <Fact label="Cost">
+        {formatMoney(trade.net_amount)}
+        {isMoney(trade.fee) && <small> incl. {formatMoney(trade.fee)} fee</small>}
+      </Fact>
+      {fromSales && (
+        <Fact label="Paid with">
+          {fromSales.all
+            ? "Cash from sales"
+            : `${formatMoney(fromSales.amount)} from sales, the rest new money`}
+        </Fact>
+      )}
       <Fact label="Value now">
         <PriceAndChange price={trade.current_value} change={trade.gain_pct} missing="–" />
       </Fact>
@@ -151,7 +169,10 @@ function SaleFacts({ trade }: { trade: Trade }) {
     <>
       <Fact label="Shares sold">{formatShares(trade.shares)}</Fact>
       <Fact label="Sell price">{formatMoney(trade.price)}</Fact>
-      <Fact label="Received">{formatMoney(trade.amount)}</Fact>
+      <Fact label="Received">
+        {formatMoney(trade.net_amount)}
+        {isMoney(trade.fee) && <small> after {formatMoney(trade.fee)} fee</small>}
+      </Fact>
       <Fact label="Those shares cost">{cost !== null ? formatMoney(cost) : "–"}</Fact>
       {gain !== null && percent !== null && (
         <Fact label={Number(gain) < 0 ? "Loss on sale" : "Gain on sale"}>

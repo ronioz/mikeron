@@ -6,12 +6,9 @@ from app.models import Trade
 from app.schemas import TradeIn
 
 
-def list_trades(db: Session, ticker: str | None = None) -> list[Trade]:
-    """Newest first, optionally only the trades of one ticker."""
-    query = select(Trade).order_by(Trade.trade_date.desc(), Trade.id.desc())
-    if ticker is not None:
-        query = query.where(Trade.ticker == ticker)
-    return list(db.scalars(query))
+def list_trades(db: Session) -> list[Trade]:
+    """Every trade, newest first."""
+    return list(db.scalars(select(Trade).order_by(Trade.trade_date.desc(), Trade.id.desc())))
 
 
 def get_trade(db: Session, trade_id: int) -> Trade | None:

@@ -7,13 +7,16 @@ from pydantic import (
     ConfigDict,
     Field,
     PlainSerializer,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 # Limits mirror the NUMERIC column definitions in models.py.
 Price = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=4)]
 Shares = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=8)]
+Fee = Annotated[Decimal, Field(ge=0, max_digits=18, decimal_places=4)]
 
 # Ratios can have endless decimals (60 / 0.27), so they are cut off on the way
 # out. Eight places is far more than any screen shows: whoever displays the
@@ -45,6 +48,10 @@ class TradeIn(BaseModel):
     forecast: Annotated[str, Field(max_length=5000)] = ""
     take_profit: Price | None = None
     stop_loss: Price | None = None
+    # Purchases only: paid with cash from earlier sales rather than new money.
+    paid_from_cash: bool = False
+    # The broker's commission. Declared after price and shares, which checking it needs.
+    fee: Fee = Decimal(0)
 
     @field_validator("ticker")
     @classmethod
@@ -59,13 +66,39 @@ class TradeIn(BaseModel):
             return None
         return value
 
+    @field_validator("fee", mode="before")
+    @classmethod
+    def blank_fee_is_zero(cls, value: object) -> object:
+        # An empty fee field means the broker charged nothing.
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return Decimal(0)
+        return value
+
+    @field_validator("fee")
+    @classmethod
+    def fee_fits_a_sale(cls, fee: Decimal, info: ValidationInfo) -> Decimal:
+        # A sale's fee comes out of what it brings in, which can't drop below nothing.
+        data = info.data
+        if (
+            data.get("side") == "sell"
+            and "price" in data
+            and "shares" in data
+            and fee > data["price"] * data["shares"]
+        ):
+            raise PydanticCustomError(
+                "fee_too_large", "The fee can't be more than the sale brings in."
+            )
+        return fee
+
     @model_validator(mode="after")
     def sales_have_no_plan(self) -> Self:
-        # A forecast and price targets describe a purchase. A sale only records what happened.
+        # A forecast, price targets and how it was paid for describe a purchase.
+        # A sale only records what happened; its money becomes cash.
         if self.side == "sell":
             self.forecast = ""
             self.take_profit = None
             self.stop_loss = None
+            self.paid_from_cash = False
         return self
 
 
@@ -73,8 +106,11 @@ class TradeOut(TradeIn):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    # Price times shares: the cost of a purchase or the proceeds of a sale.
+    # Price times shares, before any fee.
     amount: Decimal
+    # The money the trade moved, fee included: a purchase's cost plus its fee,
+    # or what a sale brought in after its fee.
+    net_amount: Decimal
     take_profit_pct: Percent | None
     stop_loss_pct: Percent | None
     created_at: datetime
@@ -99,6 +135,10 @@ class TradeOut(TradeIn):
     realized_gain_pct: Percent | None = None
     # Sales only: what the shares sold had cost to buy.
     cost_basis: Decimal | None = None
+    # Purchases only: how much of the cost came from cash from sales. The rest
+    # was new money. Can be less than the cost even when paid_from_cash is set,
+    # if there wasn't that much cash on the purchase's date.
+    cash_used: Decimal | None = None
 
 
 class Position(BaseModel):
@@ -122,13 +162,23 @@ class Position(BaseModel):
 class Totals(BaseModel):
     # What the shares still held cost to buy.
     invested: Decimal
-    # None when live prices are off or nothing could be priced.
+    # Cash from sales not spent on purchases yet.
+    cash: Decimal
+    # What the shares still held are worth. None when live prices are off or
+    # nothing could be priced.
     current_value: Decimal | None = None
+    # What the shares still held are worth plus the cash: the headline figure.
+    # None when shares are held but can't be valued.
+    total_value: Decimal | None = None
     gain: Decimal | None = None
     gain_pct: Percent | None = None
-    # Gain made on every sale so far.
+    # Gain made on every sale so far, after fees.
     realized_gain: Decimal
     sale_count: int
+    # Every fee paid, on purchases and sales, and what share of the money traded
+    # (price times shares, all trades) that is. None before any trade.
+    fees: Decimal
+    fees_pct: Percent | None = None
     # Tickers counted at cost because no live price is available for them.
     unpriced: list[str] = []
     # Age of the oldest price used.
@@ -145,11 +195,14 @@ class YearTotal(BaseModel):
     trade_count: int
     bought: Decimal
     sold: Decimal
+    fees: Decimal
 
 
 class Summary(Totals):
     trade_count: int
-    # Purchases this month, to compare with the monthly budget.
+    # New money put into purchases this month, to compare with the monthly budget.
     this_month: Decimal
+    # Purchases this month paid with cash from sales, which the budget leaves out.
+    this_month_from_cash: Decimal
     monthly_budget: Decimal
     years: list[YearTotal]

@@ -18,13 +18,17 @@ function toInput(trade: Trade): TradeInput {
     forecast: trade.forecast,
     take_profit: trade.take_profit === null ? "" : trimZeros(trade.take_profit),
     stop_loss: trade.stop_loss === null ? "" : trimZeros(trade.stop_loss),
+    paid_from_cash: trade.paid_from_cash,
+    // A trade without a fee shows an empty field, like the other optional ones.
+    fee: Number(trade.fee) === 0 ? "" : trimZeros(trade.fee),
   };
 }
 
 /** /trades/new, or /trades/new?side=sell&ticker=AAPL to start a sale of a holding. */
 export function TradeNew() {
   const [params] = useSearchParams();
-  // Only used to help fill in a sale, so the form doesn't wait for it.
+  // Only used to help fill in the form (what is held, how much cash there is),
+  // so the form doesn't wait for it.
   const portfolio = useApi(api.getPortfolio, []);
   const blank: TradeInput = {
     side: params.get("side") === "sell" ? "sell" : "buy",
@@ -36,10 +40,12 @@ export function TradeNew() {
     forecast: "",
     take_profit: "",
     stop_loss: "",
+    paid_from_cash: false,
+    fee: "",
   };
   return (
     <>
-      <title>Add trade · Trade Journal</title>
+      <title>Add trade · Mikeron</title>
       <TradeForm
         // Start over when the link changes, e.g. "Add trade" clicked while selling.
         key={params.toString()}
@@ -47,6 +53,7 @@ export function TradeNew() {
         initial={blank}
         cancelTo="/"
         holdings={portfolio.data?.positions}
+        cash={portfolio.data?.cash}
         save={api.createTrade}
       />
     </>
@@ -64,7 +71,7 @@ export function TradeEdit() {
         const what = trade.side === "sell" ? "sale" : "purchase";
         return (
           <>
-            <title>{`Edit ${trade.ticker} ${what} · Trade Journal`}</title>
+            <title>{`Edit ${trade.ticker} ${what} · Mikeron`}</title>
             <TradeForm
               heading={`Edit ${trade.ticker} ${what}`}
               initial={toInput(trade)}

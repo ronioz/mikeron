@@ -19,6 +19,10 @@ export interface TradeInput {
   forecast: string;
   take_profit: string;
   stop_loss: string;
+  /** Purchases only: paid with cash from earlier sales rather than new money. */
+  paid_from_cash: boolean;
+  /** The broker's commission in dollars; "" when there was none. */
+  fee: string;
 }
 
 export interface Trade {
@@ -32,8 +36,12 @@ export interface Trade {
   forecast: string;
   take_profit: Decimal | null;
   stop_loss: Decimal | null;
-  /** Price times shares: the cost of a purchase or the proceeds of a sale. */
+  /** Price times shares, before any fee. */
   amount: Decimal;
+  /** The broker's commission: added to a purchase's cost, taken from a sale's proceeds. */
+  fee: Decimal;
+  /** The money the trade moved, fee included: a purchase's cost plus its fee, or what a sale brought in after it. */
+  net_amount: Decimal;
   take_profit_pct: Decimal | null;
   stop_loss_pct: Decimal | null;
   /** The latest price of the ticker, when one is known. */
@@ -50,18 +58,31 @@ export interface Trade {
   realized_gain_pct: Decimal | null;
   /** Sales only: what the shares sold had cost to buy. */
   cost_basis: Decimal | null;
+  paid_from_cash: boolean;
+  /**
+   * Purchases only: how much of the cost came from cash from sales; the rest
+   * was new money. Less than the cost when there wasn't that much cash.
+   */
+  cash_used: Decimal | null;
 }
 
 export interface Totals {
   /** What the shares still held cost to buy. */
   invested: Decimal;
-  /** Null when live prices are off or nothing could be priced. */
+  /** Cash from sales not spent on purchases yet. */
+  cash: Decimal;
+  /** What the shares still held are worth. Null when live prices are off or nothing could be priced. */
   current_value: Decimal | null;
+  /** The shares still held plus the cash: the headline. Null when the shares can't be valued. */
+  total_value: Decimal | null;
   gain: Decimal | null;
   gain_pct: Decimal | null;
-  /** Gain made on every sale so far. */
+  /** Gain made on every sale so far, after fees. */
   realized_gain: Decimal;
   sale_count: number;
+  /** Every fee paid, and what share of the money traded (price times shares, all trades) that is. */
+  fees: Decimal;
+  fees_pct: Decimal | null;
   /** Tickers counted at cost because no live price is available for them. */
   unpriced: string[];
   price_at: string | null;
@@ -93,12 +114,15 @@ export interface YearTotal {
   trade_count: number;
   bought: Decimal;
   sold: Decimal;
+  fees: Decimal;
 }
 
 export interface Summary extends Totals {
   trade_count: number;
-  /** Purchases this month, to compare with the monthly budget. */
+  /** New money put into purchases this month, to compare with the monthly budget. */
   this_month: Decimal;
+  /** Purchases this month paid with cash from sales, which the budget leaves out. */
+  this_month_from_cash: Decimal;
   monthly_budget: Decimal;
   years: YearTotal[];
 }

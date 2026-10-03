@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import { formatMoney, formatSignedMoney, formatSignedPercent, formatTime } from "../format";
+import { isMoney } from "../cash";
+import { formatMoney, formatPercent, formatSignedMoney, formatSignedPercent, formatTime } from "../format";
 import type { Decimal, Totals } from "../types";
 
 /** One figure with its label, in the row under a page's headline figure. */
@@ -57,13 +58,17 @@ function holdsAnything(totals: Totals): boolean {
   return Number(totals.invested) > 0;
 }
 
-/** What everything held is worth now: the headline of the journal and the portfolio. */
+/**
+ * What everything held is worth now plus the cash from sales: the headline of
+ * the journal and the portfolio.
+ */
 export function ValueHero({ totals }: { totals: Totals }) {
-  const { current_value: value, gain, gain_pct: gainPct } = totals;
+  const { total_value: value, gain, gain_pct: gainPct } = totals;
+  const hasCash = isMoney(totals.cash);
   if (!holdsAnything(totals)) {
     return (
-      <Hero label="Portfolio value" figure={formatMoney(0)}>
-        <span className="muted">Nothing held right now</span>
+      <Hero label="Portfolio value" figure={formatMoney(totals.cash)}>
+        <span className="muted">{hasCash ? "All of it is cash from sales" : "Nothing held right now"}</span>
       </Hero>
     );
   }
@@ -76,11 +81,36 @@ export function ValueHero({ totals }: { totals: Totals }) {
       </Hero>
     );
   }
+  // The gain is the shares' own; the cash is in the figure but has no gain, so say it's there.
   return (
     <Hero label="Portfolio value" figure={formatMoney(value)}>
       <Delta amount={gain} percent={gainPct} />
-      <span className="muted">vs what you paid</span>
+      <span className="muted">
+        vs what you paid{hasCash && `, plus ${formatMoney(totals.cash)} in cash`}
+      </span>
     </Hero>
+  );
+}
+
+/** Every fee paid so far, and what share of the money traded that is. */
+export function FeesStat({ totals }: { totals: Totals }) {
+  return (
+    <Stat label="Fees">
+      <span className="value">{formatMoney(totals.fees)}</span>
+      {totals.fees_pct !== null && (
+        <span className="sub">{formatPercent(totals.fees_pct)} of what you traded</span>
+      )}
+    </Stat>
+  );
+}
+
+/** Cash from sales that hasn't been spent on purchases yet. */
+export function CashStat({ totals }: { totals: Totals }) {
+  return (
+    <Stat label="Cash">
+      <span className="value">{formatMoney(totals.cash)}</span>
+      <span className="sub">from sales, not reinvested</span>
+    </Stat>
   );
 }
 

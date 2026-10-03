@@ -1,4 +1,4 @@
-# mikeron
+# Mikeron
 
 A personal trade journal. For every buy you record the ticker, price, number of
 shares, date, why you bought, what you expect to happen, and the prices at which
@@ -39,6 +39,16 @@ remembers your choice in that browser.
   such as 0.13304 never have to be typed by hand.
 - **Edit** and **Delete** are on every row of the journal and on each trade's
   page. Deleting asks first.
+- **Cash from sales.** The money from a sale goes into **Cash**. A purchase's
+  **Paid with** says whether it was new money (what you put in each month) or
+  **cash from sales** (reinvesting). Such a purchase uses the cash there is on
+  its date; whatever the cash doesn't cover counts as new money. To record
+  selling one stock to buy another, add the sale, then mark the purchases as
+  paid with cash from sales.
+- **Fee ($)** on every trade is the broker's commission, copied from your
+  broker's statement; leave it empty when there was none. A purchase's fee is
+  added to what it cost, a sale's comes off what it brought in, and the
+  **Fees** figure on the Portfolio page adds them all up.
 
 How the numbers work:
 
@@ -48,17 +58,31 @@ How the numbers work:
   minus that cost.
 - A purchase that sales used up shows how many of its shares are left; once all
   are sold it shows "all sold".
-- **Invested** is what the shares you still hold cost. **Gain from sales**
-  (often called realised gain) adds up what every sale gained or lost. The gain
-  shown under **Current value** is on the shares you still hold.
+- Gains are after fees. A purchase's fee is part of what its shares cost, shared
+  out by share, so selling half of a purchase takes half of its fee into that
+  sale's cost. A sale's own fee comes off what it brought in.
+- **Invested** is what the shares you still hold cost, their fees included, and
+  **Avg cost** is that per share. **Gain from sales** (often called realised
+  gain) adds up what every sale gained or lost. The gain shown under **Portfolio
+  value** is on the shares you still hold.
+- **Fees** shows every fee paid and what share of the money you traded that is.
+  On small purchases it adds up: a $1.50 fee on a $30 buy is 5%.
+- **Portfolio value** is what the shares you hold are worth plus your **Cash**,
+  the money from sales (after their fees) that no purchase has used yet. On the
+  same day, sales come before purchases, so a purchase can reinvest that day's
+  sale. A purchase paid from cash uses it for its fee too.
+- **This month** counts only new money against your monthly plan, fees
+  included. Purchases paid with cash from sales are shown beside it as
+  reinvested.
 - A sale can't use more shares than you held on its date. The same check covers
   edits: the app refuses a change, such as deleting or shrinking a purchase, that
   would leave a later sale without enough shares, and says which sale is in the
   way.
 
-Nothing about which shares a sale used is stored. It is worked out from the
-trades each time (`app/ledger.py`), so edits and deletions can never leave it out
-of date.
+Nothing about which shares a sale used, or how much cash a purchase reused, is
+stored. Both are worked out from the trades each time (`app/ledger.py`,
+`app/cash.py`), so edits and deletions can never leave them out of date.
+Deleting a sale turns the purchases it paid for back into new money.
 
 ## Live prices
 
@@ -165,6 +189,7 @@ app/                   backend
   schemas.py           what the API accepts and returns
   crud.py              database queries, and the check that every sale has the shares it needs
   ledger.py            which purchased shares each sale used (oldest first)
+  cash.py              the cash sales leave, and which purchases reused it
   prices.py            live prices: Finnhub client and the cache in front of it
   portfolio.py         the arithmetic: values, gains, positions, totals
   deps.py              login check, cross-site request check, trade lookup
@@ -179,6 +204,7 @@ frontend/              React + TypeScript app
     api.ts             every call to the backend
     types.ts           shapes of the API responses
     format.ts          money, percentages, dates
+    cash.ts            how much of a purchase was paid with cash from sales
     deleteTrade.ts     asks before deleting a trade
     theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours

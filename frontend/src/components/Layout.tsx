@@ -8,7 +8,7 @@ export function Layout() {
       <header className="site-header">
         <Link className="brand" to="/">
           <Logo />
-          Trade Journal
+          Mikeron
         </Link>
         <nav className="site-nav" aria-label="Main">
           <NavLink to="/" end>

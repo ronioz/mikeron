@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { buildSlices, OTHER } from "../chart";
 import { DonutChart } from "../components/DonutChart";
-import { Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
+import { isMoney } from "../cash";
+import { CashStat, Change, FeesStat, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney } from "../format";
 import type { Portfolio } from "../types";
@@ -13,7 +14,7 @@ export function PortfolioPage() {
   const state = useApi(api.getPortfolio, [], REFRESH_MS);
   return (
     <>
-      <title>Portfolio · Trade Journal</title>
+      <title>Portfolio · Mikeron</title>
       {/* The tab in the header already says where this is; the heading is for screen readers. */}
       <h1 className="visually-hidden">Portfolio</h1>
       <Loadable state={state}>
@@ -35,6 +36,8 @@ function NoHoldings({ portfolio }: { portfolio: Portfolio }) {
       <>
         <section className="stats">
           <SalesStat totals={portfolio} />
+          <CashStat totals={portfolio} />
+          {isMoney(portfolio.fees) && <FeesStat totals={portfolio} />}
         </section>
         <section className="empty">
           <p>You don't hold anything right now. Everything you bought has been sold.</p>
@@ -70,14 +73,17 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
           <span className="value">{formatMoney(portfolio.invested)}</span>
         </Stat>
         {portfolio.sale_count > 0 && <SalesStat totals={portfolio} />}
+        {portfolio.sale_count > 0 && <CashStat totals={portfolio} />}
+        {isMoney(portfolio.fees) && <FeesStat totals={portfolio} />}
         <Stat label="Holdings">
           <span className="value">{positions.length}</span>
         </Stat>
       </section>
       <PriceNote totals={portfolio} />
 
+      {/* The shares only: the cash in the headline isn't part of the ring. */}
       <section className="page-section">
-        <h2 className="section-heading">Share of portfolio by {basis}</h2>
+        <h2 className="section-heading">Share of holdings by {basis}</h2>
         <DonutChart
           slices={slices}
           basis={basis}
@@ -93,7 +99,8 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
               <tr>
                 <th>Ticker</th>
                 <th className="number">Shares</th>
-                <th className="number">Avg buy price</th>
+                {/* Per share, fees included, like Invested beside it. */}
+                <th className="number">Avg cost</th>
                 <th className="number">Invested</th>
                 <th className="number">Price now</th>
                 <th className="number">Value</th>

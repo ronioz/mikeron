@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api";
+import { isMoney, reinvested } from "../cash";
 import { Change, Delta, Hero, Stat } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { confirmAndDelete } from "../deleteTrade";
@@ -38,7 +39,7 @@ function Report({ trade }: { trade: Trade }) {
 
   return (
     <>
-      <title>{`${trade.ticker} ${sale ? "sale" : "purchase"} · Trade Journal`}</title>
+      <title>{`${trade.ticker} ${sale ? "sale" : "purchase"} · Mikeron`}</title>
       <div className="page-head">
         <h1>
           {trade.ticker}{" "}
@@ -125,6 +126,7 @@ function PurchaseFigures({ trade }: { trade: Trade }) {
   // Purchases that sales have used up, in part or in full, carry a realised gain.
   const soldFrom = realized !== null && realizedPct !== null;
   const soldOut = left !== null && Number(left) === 0;
+  const fromSales = reinvested(trade);
 
   return (
     <>
@@ -148,8 +150,21 @@ function PurchaseFigures({ trade }: { trade: Trade }) {
         <Stat label="Buy price">
           <span className="value">{formatMoney(trade.price)}</span>
         </Stat>
+        {/* With its fee, so it matches the gain worked out against it. */}
         <Stat label="Cost">
-          <span className="value">{formatMoney(trade.amount)}</span>
+          <span className="value">{formatMoney(trade.net_amount)}</span>
+          {isMoney(trade.fee) && (
+            <span className="sub">
+              {formatMoney(trade.amount)} for the shares + {formatMoney(trade.fee)} fee
+            </span>
+          )}
+          {fromSales && (
+            <span className="sub">
+              {fromSales.all
+                ? "paid with cash from sales"
+                : `${formatMoney(fromSales.amount)} of it from sales`}
+            </span>
+          )}
         </Stat>
         <PriceNow trade={trade} />
         {soldFrom && !soldOut && (
@@ -228,7 +243,13 @@ function SaleFigures({ trade }: { trade: Trade }) {
           <span className="value">{formatMoney(trade.price)}</span>
         </Stat>
         <Stat label="Received">
-          <span className="value">{formatMoney(trade.amount)}</span>
+          <span className="value">{formatMoney(trade.net_amount)}</span>
+          {isMoney(trade.fee) && (
+            <span className="sub">
+              {formatMoney(trade.amount)} for the shares {"−"} {formatMoney(trade.fee)} fee
+            </span>
+          )}
+          <span className="sub">added to your cash</span>
         </Stat>
         <Stat label="Those shares cost">
           <span className="value">{cost !== null ? formatMoney(cost) : "–"}</span>
