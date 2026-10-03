@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { isMoney } from "../cash";
 import { formatMoney, formatPercent, formatSignedMoney, formatSignedPercent, formatTime } from "../format";
 import type { Decimal, Totals } from "../types";
 
@@ -59,20 +58,20 @@ function holdsAnything(totals: Totals): boolean {
 }
 
 /**
- * What everything held is worth now plus the cash from sales: the headline of
- * the journal and the portfolio.
+ * Everything there is now (the shares held plus the cash from sales) against
+ * the user's own money put in: the headline of the journal and the portfolio.
+ * The gain covers the shares still held and every sale, after fees.
  */
 export function ValueHero({ totals }: { totals: Totals }) {
-  const { total_value: value, gain, gain_pct: gainPct } = totals;
-  const hasCash = isMoney(totals.cash);
-  if (!holdsAnything(totals)) {
+  const { total_value: value, total_gain: gain, total_gain_pct: gainPct } = totals;
+  if (Number(totals.money_in) === 0) {
     return (
-      <Hero label="Portfolio value" figure={formatMoney(totals.cash)}>
-        <span className="muted">{hasCash ? "All of it is cash from sales" : "Nothing held right now"}</span>
+      <Hero label="Portfolio value" figure={formatMoney(0)}>
+        <span className="muted">Nothing held right now</span>
       </Hero>
     );
   }
-  if (value === null || gain === null || gainPct === null) {
+  if (value === null) {
     return (
       <Hero label="Portfolio value" figure={<span className="muted">–</span>}>
         <span className="muted">
@@ -81,14 +80,21 @@ export function ValueHero({ totals }: { totals: Totals }) {
       </Hero>
     );
   }
-  // The gain is the shares' own; the cash is in the figure but has no gain, so say it's there.
   return (
     <Hero label="Portfolio value" figure={formatMoney(value)}>
-      <Delta amount={gain} percent={gainPct} />
-      <span className="muted">
-        vs what you paid{hasCash && `, plus ${formatMoney(totals.cash)} in cash`}
-      </span>
+      {gain !== null && gainPct !== null && <Delta amount={gain} percent={gainPct} />}
+      <span className="muted">on the {formatMoney(totals.money_in)} you put in</span>
     </Hero>
+  );
+}
+
+/** The user's own money put into purchases; reinvested cash from sales isn't counted twice. */
+export function MoneyInStat({ totals }: { totals: Totals }) {
+  return (
+    <Stat label="Put in">
+      <span className="value">{formatMoney(totals.money_in)}</span>
+      <span className="sub">your own money</span>
+    </Stat>
   );
 }
 

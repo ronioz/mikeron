@@ -61,10 +61,15 @@ How the numbers work:
 - Gains are after fees. A purchase's fee is part of what its shares cost, shared
   out by share, so selling half of a purchase takes half of its fee into that
   sale's cost. A sale's own fee comes off what it brought in.
-- **Invested** is what the shares you still hold cost, their fees included, and
-  **Avg cost** is that per share. **Gain from sales** (often called realised
-  gain) adds up what every sale gained or lost. The gain shown under **Portfolio
-  value** is on the shares you still hold.
+- **Put in** is your own money: every purchase with its fee, less what cash
+  from sales paid for. The gain under **Portfolio value** compares everything
+  you have now (your shares plus your cash) with it, so it covers both the
+  shares you still hold and every sale.
+- In the holdings table, **Cost** is what each holding's shares cost, fees
+  included, and **Avg cost** is that per share. Added up, the costs can come to
+  more than Put in: when you reinvest a sale's gain, it becomes part of what the
+  new shares cost, without any new money. **Gain from sales** (often called
+  realised gain) adds up what every sale gained or lost.
 - **Fees** shows every fee paid and what share of the money you traded that is.
   On small purchases it adds up: a $1.50 fee on a $30 buy is 5%.
 - **Portfolio value** is what the shares you hold are worth plus your **Cash**,

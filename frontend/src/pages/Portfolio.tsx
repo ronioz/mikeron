@@ -4,7 +4,16 @@ import { api } from "../api";
 import { buildSlices, OTHER } from "../chart";
 import { DonutChart } from "../components/DonutChart";
 import { isMoney } from "../cash";
-import { CashStat, Change, FeesStat, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
+import {
+  CashStat,
+  Change,
+  FeesStat,
+  MoneyInStat,
+  PriceNote,
+  SalesStat,
+  Stat,
+  ValueHero,
+} from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney } from "../format";
 import type { Portfolio } from "../types";
@@ -69,9 +78,7 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
     <>
       <ValueHero totals={portfolio} />
       <section className="stats">
-        <Stat label="Invested">
-          <span className="value">{formatMoney(portfolio.invested)}</span>
-        </Stat>
+        <MoneyInStat totals={portfolio} />
         {portfolio.sale_count > 0 && <SalesStat totals={portfolio} />}
         {portfolio.sale_count > 0 && <CashStat totals={portfolio} />}
         {isMoney(portfolio.fees) && <FeesStat totals={portfolio} />}
@@ -101,7 +108,8 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
                 <th className="number">Shares</th>
                 {/* Per share, fees included, like Invested beside it. */}
                 <th className="number">Avg cost</th>
-                <th className="number">Invested</th>
+                {/* What each holding cost, fees included. Not "Put in": reinvested gains are part of it. */}
+                <th className="number">Cost</th>
                 <th className="number">Price now</th>
                 <th className="number">Value</th>
                 <th className="number">Gain</th>

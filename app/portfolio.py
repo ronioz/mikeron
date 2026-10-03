@@ -106,8 +106,13 @@ def _totals(
     invested = sum((position.cost for position in positions), ZERO)
     traded = sum((trade.amount for trade in trades), ZERO)
     fees = sum((trade.fee for trade in trades), ZERO)
+    # The user's own money: every purchase with its fee, less what cash from sales paid for.
+    money_in = sum(
+        (trade.net_amount - cash.used[trade.id] for trade in trades if trade.side != SELL), ZERO
+    )
     totals = Totals(
         invested=invested,
+        money_in=money_in,
         cash=cash.balance,
         realized_gain=sum((sale.gain for sale in ledger.sales.values()), ZERO),
         sale_count=len(ledger.sales),
@@ -117,19 +122,23 @@ def _totals(
         # With nothing held, the cash is everything there is, priced or not.
         total_value=cash.balance if not positions else None,
     )
-    if not prices_enabled:
-        return totals
+    if prices_enabled:
+        priced = [position for position in positions if position.current_price is not None]
+        totals.unpriced = sorted(
+            position.ticker for position in positions if position.current_price is None
+        )
+        if priced:
+            totals.current_value = sum((position.value for position in positions), ZERO)
+            totals.total_value = totals.current_value + cash.balance
+            totals.gain = totals.current_value - invested
+            totals.gain_pct = totals.gain / invested * 100
+            totals.price_at = min(quotes[position.ticker].fetched_at for position in priced)
 
-    priced = [position for position in positions if position.current_price is not None]
-    totals.unpriced = sorted(
-        position.ticker for position in positions if position.current_price is None
-    )
-    if priced:
-        totals.current_value = sum((position.value for position in positions), ZERO)
-        totals.total_value = totals.current_value + cash.balance
-        totals.gain = totals.current_value - invested
-        totals.gain_pct = totals.gain / invested * 100
-        totals.price_at = min(quotes[position.ticker].fetched_at for position in priced)
+    # Everything there is now against everything put in: the gain on the shares
+    # still held and every sale's gain together.
+    if totals.total_value is not None and money_in > 0:
+        totals.total_gain = totals.total_value - money_in
+        totals.total_gain_pct = totals.total_gain / money_in * 100
     return totals
 
 

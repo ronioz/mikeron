@@ -67,14 +67,19 @@ export interface Trade {
 }
 
 export interface Totals {
-  /** What the shares still held cost to buy. */
+  /** What the shares still held cost to buy, fees included. Grows when gains from sales are reinvested. */
   invested: Decimal;
+  /** The user's own money: every purchase with its fee, less what cash from sales paid for. */
+  money_in: Decimal;
   /** Cash from sales not spent on purchases yet. */
   cash: Decimal;
   /** What the shares still held are worth. Null when live prices are off or nothing could be priced. */
   current_value: Decimal | null;
   /** The shares still held plus the cash: the headline. Null when the shares can't be valued. */
   total_value: Decimal | null;
+  /** total_value against money_in: the gain still held plus every sale's. Null when total_value is. */
+  total_gain: Decimal | null;
+  total_gain_pct: Decimal | null;
   gain: Decimal | null;
   gain_pct: Decimal | null;
   /** Gain made on every sale so far, after fees. */

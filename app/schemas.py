@@ -160,8 +160,12 @@ class Position(BaseModel):
 
 
 class Totals(BaseModel):
-    # What the shares still held cost to buy.
+    # What the shares still held cost to buy, fees included (their cost basis).
+    # Grows when gains from sales are reinvested, without any new money.
     invested: Decimal
+    # The user's own money: every purchase with its fee, less what cash from
+    # sales paid for. Sales take nothing out; their money stays as cash.
+    money_in: Decimal
     # Cash from sales not spent on purchases yet.
     cash: Decimal
     # What the shares still held are worth. None when live prices are off or
@@ -170,6 +174,10 @@ class Totals(BaseModel):
     # What the shares still held are worth plus the cash: the headline figure.
     # None when shares are held but can't be valued.
     total_value: Decimal | None = None
+    # total_value against money_in: the gain on the shares still held plus every
+    # sale's gain. None when total_value is, or nothing was put in yet.
+    total_gain: Decimal | None = None
+    total_gain_pct: Percent | None = None
     gain: Decimal | None = None
     gain_pct: Percent | None = None
     # Gain made on every sale so far, after fees.

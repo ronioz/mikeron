@@ -3,7 +3,15 @@ import { Link } from "react-router";
 
 import { api } from "../api";
 import { isMoney, reinvested } from "../cash";
-import { CashStat, Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
+import {
+  CashStat,
+  Change,
+  MoneyInStat,
+  PriceNote,
+  SalesStat,
+  Stat,
+  ValueHero,
+} from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
@@ -81,9 +89,7 @@ function Journal({ summary, trades, reload }: JournalProps) {
     <>
       <ValueHero totals={summary} />
       <section className="stats">
-        <Stat label="Invested">
-          <span className="value">{formatMoney(summary.invested)}</span>
-        </Stat>
+        <MoneyInStat totals={summary} />
         {summary.sale_count > 0 && <SalesStat totals={summary} />}
         {summary.sale_count > 0 && <CashStat totals={summary} />}
         <Stat label="Trades">
