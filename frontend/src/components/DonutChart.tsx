@@ -108,7 +108,7 @@ export function DonutChart({ slices, basis, total }: Props) {
               className={`slice${activeKey && activeKey !== slice.key ? " dimmed" : ""}`}
               d={ringSegment(start, end, INNER, OUTER)}
               fill={slice.color}
-              // A thin line in the card colour separates touching slices.
+              // A thin line in the page colour separates touching slices.
               strokeWidth={slices.length > 1 ? 2 : 0}
             />
           ))}

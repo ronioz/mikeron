@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import { api } from "../api";
-import { Change, PriceNote, SalesTile, StatTile, ValueTile } from "../components/figures";
+import { Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
-import { formatMoney, formatShares, formatSignedMoney } from "../format";
+import { formatDate, formatMoney, formatShares, formatShortDate, formatSignedMoney } from "../format";
 import type { Decimal, Summary, Trade, YearTotal } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
@@ -15,6 +15,8 @@ export function Dashboard() {
   return (
     <>
       <title>Trade Journal</title>
+      {/* The tab in the header already says where this is; the heading is for screen readers. */}
+      <h1 className="visually-hidden">Journal</h1>
       <Loadable state={state}>
         {([summary, trades]) =>
           trades.length === 0 ? (
@@ -30,7 +32,7 @@ export function Dashboard() {
 
 function NoTrades() {
   return (
-    <section className="card empty">
+    <section className="empty">
       <p>No trades yet.</p>
       <Link className="button" to="/trades/new">
         Add your first trade
@@ -76,20 +78,20 @@ function Journal({ summary, trades, reload }: JournalProps) {
 
   return (
     <>
+      <ValueHero totals={summary} />
       <section className="stats">
-        <StatTile label="Invested">
+        <Stat label="Invested">
           <span className="value">{formatMoney(summary.invested)}</span>
-        </StatTile>
-        <ValueTile totals={summary} />
-        {summary.sale_count > 0 && <SalesTile totals={summary} />}
-        <StatTile label="Trades">
+        </Stat>
+        {summary.sale_count > 0 && <SalesStat totals={summary} />}
+        <Stat label="Trades">
           <span className="value">{summary.trade_count}</span>
-        </StatTile>
-        <StatTile label="This month">
+        </Stat>
+        <Stat label="This month">
           <span className="value">{formatMoney(summary.this_month)}</span>
           <span className="sub">of {formatMoney(summary.monthly_budget)} planned</span>
           {budget > 0 && <progress value={Number(summary.this_month)} max={budget} />}
-        </StatTile>
+        </Stat>
       </section>
       <PriceNote totals={summary} />
 
@@ -104,7 +106,7 @@ function Journal({ summary, trades, reload }: JournalProps) {
         year to the next. Narrower ones, where the table would need sideways
         scrolling, get the list below instead; styles.css decides which shows.
       */}
-      <section className="card table-wrap journal-table">
+      <section className="table-wrap journal-table">
         <table>
           <thead>
             <tr>
@@ -126,7 +128,7 @@ function Journal({ summary, trades, reload }: JournalProps) {
             <tbody key={total.year}>
               <tr className="year">
                 <th colSpan={10} scope="rowgroup">
-                  {total.year} <YearSummary total={total} />
+                  <span className="year-number">{total.year}</span> <YearSummary total={total} />
                 </th>
               </tr>
               {(byYear.get(total.year) ?? []).map((trade) => (
@@ -141,9 +143,9 @@ function Journal({ summary, trades, reload }: JournalProps) {
         {summary.years.map((total) => (
           <section key={total.year} className="year-group">
             <h2 className="year-heading">
-              {total.year} <YearSummary total={total} />
+              <span className="year-number">{total.year}</span> <YearSummary total={total} />
             </h2>
-            <ul className="card trade-list">
+            <ul className="trade-list">
               {(byYear.get(total.year) ?? []).map((trade) => (
                 <li key={trade.id}>
                   <TradeItem trade={trade} onDelete={remove} />
@@ -214,10 +216,11 @@ function SharesLeft({ trade }: { trade: Trade }) {
 function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) => void }) {
   const sale = trade.side === "sell";
   // The row buttons only say "Edit" and "Delete"; this tells a screen reader which trade.
-  const which = `${sale ? "sale" : "purchase"} of ${trade.ticker} on ${trade.trade_date}`;
+  const which = `${sale ? "sale" : "purchase"} of ${trade.ticker} on ${formatDate(trade.trade_date)}`;
   return (
     <tr>
-      <td className="nowrap">{trade.trade_date}</td>
+      {/* The year is in the heading row above. */}
+      <td className="nowrap">{formatShortDate(trade.trade_date)}</td>
       <td>
         <Link className="ticker" to={`/trades/${trade.id}`}>
           {trade.ticker}

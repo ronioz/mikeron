@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
-import { formatMoney, formatShares, formatSignedMoney } from "../format";
+import { formatMoney, formatShares, formatShortDate, formatSignedMoney } from "../format";
 import type { Trade } from "../types";
 import { Change } from "./figures";
 
@@ -26,8 +26,9 @@ export function TradeItem({ trade, onDelete }: Props) {
             <span className="ticker">{trade.ticker}</span>{" "}
             <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>
           </span>
+          {/* The year is in the heading over the list. */}
           <small>
-            {trade.trade_date} · {sharesText(trade)}
+            {formatShortDate(trade.trade_date)} · {sharesText(trade)}
           </small>
         </span>
         <span className="item-figure">

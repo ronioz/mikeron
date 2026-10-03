@@ -2,11 +2,18 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api";
-import { Change, Delta, StatTile } from "../components/figures";
+import { Change, Delta, Hero, Stat } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { confirmAndDelete } from "../deleteTrade";
-import { formatMoney, formatShares, formatSignedMoney, formatTime } from "../format";
-import type { Trade } from "../types";
+import {
+  formatDate,
+  formatMoney,
+  formatShares,
+  formatSignedMoney,
+  formatSignedPercent,
+  formatTime,
+} from "../format";
+import type { Decimal, Trade } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
 export function TradeDetail() {
@@ -34,8 +41,11 @@ function Report({ trade }: { trade: Trade }) {
       <title>{`${trade.ticker} ${sale ? "sale" : "purchase"} · Trade Journal`}</title>
       <div className="page-head">
         <h1>
-          {trade.ticker} <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
-          <small>{trade.trade_date}</small>
+          {trade.ticker}{" "}
+          <span className="title-meta">
+            <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
+            <span>{formatDate(trade.trade_date)}</span>
+          </span>
         </h1>
         <div className="actions">
           {stillHeld && (
@@ -67,13 +77,13 @@ function Report({ trade }: { trade: Trade }) {
           : `No live price is available for ${trade.ticker}.`}
       </p>
 
-      <section className="card note">
+      <section className="note">
         <h2>{sale ? "Why I sold" : "Why I bought"}</h2>
         <p className="prose">{trade.thesis}</p>
       </section>
 
       {!sale && (
-        <section className="card note">
+        <section className="note">
           <h2>Forecast</h2>
           {trade.forecast ? (
             <p className="prose">{trade.forecast}</p>
@@ -86,125 +96,146 @@ function Report({ trade }: { trade: Trade }) {
   );
 }
 
+/** A gain or loss as a large figure in green or red, for a headline. */
+function SignedFigure({ amount }: { amount: Decimal }) {
+  return <span className={Number(amount) >= 0 ? "gain" : "loss"}>{formatSignedMoney(amount)}</span>;
+}
+
+/** A percentage in green or red, at the size of the line it sits in. */
+function SignedPercent({ percent }: { percent: Decimal }) {
+  return (
+    <span className={`delta ${Number(percent) >= 0 ? "gain" : "loss"}`}>{formatSignedPercent(percent)}</span>
+  );
+}
+
 function PriceNow({ trade }: { trade: Trade }) {
   return (
-    <StatTile label="Price now">
+    <Stat label="Price now">
       {trade.current_price !== null ? (
         <span className="value">{formatMoney(trade.current_price)}</span>
       ) : (
         <span className="value muted">–</span>
       )}
-    </StatTile>
+    </Stat>
   );
 }
 
 function PurchaseFigures({ trade }: { trade: Trade }) {
-  const left = trade.remaining_shares;
+  const { remaining_shares: left, realized_gain: realized, realized_gain_pct: realizedPct } = trade;
   // Purchases that sales have used up, in part or in full, carry a realised gain.
-  const soldFrom = trade.realized_gain !== null && trade.realized_gain_pct !== null;
+  const soldFrom = realized !== null && realizedPct !== null;
   const soldOut = left !== null && Number(left) === 0;
 
   return (
-    <section className="stats">
-      <StatTile label="Shares">
-        <span className="value">{formatShares(trade.shares)}</span>
-        {soldFrom && left !== null && (
-          <span className="sub">{soldOut ? "All sold" : `${formatShares(left)} still held`}</span>
-        )}
-      </StatTile>
-      <StatTile label="Buy price">
-        <span className="value">{formatMoney(trade.price)}</span>
-      </StatTile>
-      <StatTile label="Cost">
-        <span className="value">{formatMoney(trade.amount)}</span>
-      </StatTile>
-      <PriceNow trade={trade} />
-      <StatTile label="Value now">
-        {trade.current_value !== null && trade.gain !== null && trade.gain_pct !== null ? (
-          <>
-            <span className="value">{formatMoney(trade.current_value)}</span>
-            <Delta amount={trade.gain} percent={trade.gain_pct} />
-            {soldFrom && left !== null && (
-              <span className="sub">of the {formatShares(left)} shares still held</span>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="value muted">–</span>
-            {soldOut && <span className="sub">Nothing left to value</span>}
-          </>
-        )}
-      </StatTile>
-      {soldFrom && trade.realized_gain !== null && trade.realized_gain_pct !== null && (
-        <StatTile label="Gain from sales">
-          <span className={`value ${Number(trade.realized_gain) >= 0 ? "gain" : "loss"}`}>
-            {formatSignedMoney(trade.realized_gain)}
-          </span>
-          <span className="sub">
-            <Change percent={trade.realized_gain_pct} /> on the shares sold
-          </span>
-        </StatTile>
+    <>
+      {/* The headline: what the shares still held are worth, or once all are sold, what selling them made. */}
+      {soldOut && soldFrom ? (
+        <Hero label="Gain from sales" figure={<SignedFigure amount={realized} />}>
+          <SignedPercent percent={realizedPct} />
+          <span className="muted">on the shares sold</span>
+        </Hero>
+      ) : (
+        <ValueNow trade={trade} />
       )}
-      <StatTile label="Take profit at">
-        {trade.take_profit !== null && trade.take_profit_pct !== null ? (
-          <>
-            <span className="value">{formatMoney(trade.take_profit)}</span>
-            <span className="sub">
-              <Change percent={trade.take_profit_pct} /> vs buy
+
+      <section className="facts-grid">
+        <Stat label="Shares">
+          <span className="value">{formatShares(trade.shares)}</span>
+          {soldFrom && left !== null && (
+            <span className="sub">{soldOut ? "All sold" : `${formatShares(left)} still held`}</span>
+          )}
+        </Stat>
+        <Stat label="Buy price">
+          <span className="value">{formatMoney(trade.price)}</span>
+        </Stat>
+        <Stat label="Cost">
+          <span className="value">{formatMoney(trade.amount)}</span>
+        </Stat>
+        <PriceNow trade={trade} />
+        {soldFrom && !soldOut && (
+          <Stat label="Gain from sales">
+            <span className={`value ${Number(realized) >= 0 ? "gain" : "loss"}`}>
+              {formatSignedMoney(realized)}
             </span>
-          </>
-        ) : (
-          <span className="value muted">Not set</span>
-        )}
-      </StatTile>
-      <StatTile label="Stop loss at">
-        {trade.stop_loss !== null && trade.stop_loss_pct !== null ? (
-          <>
-            <span className="value">{formatMoney(trade.stop_loss)}</span>
             <span className="sub">
-              <Change percent={trade.stop_loss_pct} /> vs buy
+              <Change percent={realizedPct} /> on the shares sold
             </span>
-          </>
-        ) : (
-          <span className="value muted">Not set</span>
+          </Stat>
         )}
-      </StatTile>
-    </section>
+        <Stat label="Take profit at">
+          {trade.take_profit !== null && trade.take_profit_pct !== null ? (
+            <>
+              <span className="value">{formatMoney(trade.take_profit)}</span>
+              <span className="sub">
+                <Change percent={trade.take_profit_pct} /> vs buy
+              </span>
+            </>
+          ) : (
+            <span className="value muted">Not set</span>
+          )}
+        </Stat>
+        <Stat label="Stop loss at">
+          {trade.stop_loss !== null && trade.stop_loss_pct !== null ? (
+            <>
+              <span className="value">{formatMoney(trade.stop_loss)}</span>
+              <span className="sub">
+                <Change percent={trade.stop_loss_pct} /> vs buy
+              </span>
+            </>
+          ) : (
+            <span className="value muted">Not set</span>
+          )}
+        </Stat>
+      </section>
+    </>
+  );
+}
+
+/** What the shares of a purchase that are still held are worth, and their gain so far. */
+function ValueNow({ trade }: { trade: Trade }) {
+  const { current_value: value, gain, gain_pct: gainPct, remaining_shares: left } = trade;
+  if (value === null || gain === null || gainPct === null) {
+    return <Hero label="Value now" figure={<span className="muted">–</span>} />;
+  }
+  // Only worth saying when sales have taken some of the shares.
+  const partlySold = trade.realized_gain !== null && left !== null;
+  return (
+    <Hero label="Value now" figure={formatMoney(value)}>
+      <Delta amount={gain} percent={gainPct} />
+      {partlySold && <span className="muted">of the {formatShares(left)} shares still held</span>}
+    </Hero>
   );
 }
 
 function SaleFigures({ trade }: { trade: Trade }) {
   const { realized_gain: gain, realized_gain_pct: percent, cost_basis: cost } = trade;
   return (
-    <section className="stats">
-      <StatTile label="Shares sold">
-        <span className="value">{formatShares(trade.shares)}</span>
-      </StatTile>
-      <StatTile label="Sell price">
-        <span className="value">{formatMoney(trade.price)}</span>
-      </StatTile>
-      <StatTile label="Received">
-        <span className="value">{formatMoney(trade.amount)}</span>
-      </StatTile>
-      <StatTile label="Those shares cost">
-        <span className="value">{cost !== null ? formatMoney(cost) : "–"}</span>
-        <span className="sub">Oldest shares are sold first</span>
-      </StatTile>
-      <StatTile label={gain !== null && Number(gain) < 0 ? "Loss on sale" : "Gain on sale"}>
-        {gain !== null && percent !== null ? (
-          <>
-            <span className={`value ${Number(gain) >= 0 ? "gain" : "loss"}`}>
-              {formatSignedMoney(gain)}
-            </span>
-            <span className="sub">
-              <Change percent={percent} /> on what they cost
-            </span>
-          </>
-        ) : (
-          <span className="value muted">–</span>
-        )}
-      </StatTile>
-      <PriceNow trade={trade} />
-    </section>
+    <>
+      {gain !== null && percent !== null ? (
+        <Hero label={Number(gain) < 0 ? "Loss on sale" : "Gain on sale"} figure={<SignedFigure amount={gain} />}>
+          <SignedPercent percent={percent} />
+          <span className="muted">on what they cost</span>
+        </Hero>
+      ) : (
+        <Hero label="Gain on sale" figure={<span className="muted">–</span>} />
+      )}
+
+      <section className="facts-grid">
+        <Stat label="Shares sold">
+          <span className="value">{formatShares(trade.shares)}</span>
+        </Stat>
+        <Stat label="Sell price">
+          <span className="value">{formatMoney(trade.price)}</span>
+        </Stat>
+        <Stat label="Received">
+          <span className="value">{formatMoney(trade.amount)}</span>
+        </Stat>
+        <Stat label="Those shares cost">
+          <span className="value">{cost !== null ? formatMoney(cost) : "–"}</span>
+          <span className="sub">Oldest shares are sold first</span>
+        </Stat>
+        <PriceNow trade={trade} />
+      </section>
+    </>
   );
 }

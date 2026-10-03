@@ -1,8 +1,17 @@
 /*
- * Colours, in the plain style of finance sites: black, white and greys, with
- * green and red as the only colours, kept for money (gains and losses, buys
- * and sells, and the warnings about them). The light theme is creamy white and
- * black; the dark theme is near-black with navy cards.
+ * The look: a broker-style page with an editorial voice. One large figure
+ * leads each page, and everything else sits straight on the page, grouped by
+ * thin lines rather than boxed in cards.
+ *
+ * Type: Instrument Serif for display (the name in the header, headline
+ * figures, years, and the notes on why a trade was made), Instrument Sans for
+ * everything else. The serif has no equal-width digits, so it only sets
+ * figures that stand alone; columns of figures use the sans, which has them.
+ *
+ * Colour: black, white and greys, with green and red as the only colours,
+ * kept for money (gains and losses, buys and sells, and the warnings about
+ * them). The light theme is creamy white and black; the dark theme is a
+ * neutral near-black, with no tint.
  *
  * The theme is the data-theme attribute on <html>, set before the page draws
  * (index.html) and changed by the switch in the header (theme.ts).
@@ -13,13 +22,19 @@
 :root {
   color-scheme: light;
 
+  --font-sans: "Instrument Sans Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+
   --bg: #f3f0e8;
-  --surface: #fcfaf5;
-  /* A light fill inside cards: open trades, fields, the table's year rows. */
-  --tint: #f6f3ec;
+  /* A step off the page: fields, the chosen Buy or Sell, a hovered legend row. */
+  --raised: #fcfaf5;
   --text: #1b1a17;
+  /* The notes on why a trade was made, a little softer than the figures. */
+  --text-soft: #45423c;
   --muted: #5f5c55;
-  --border: #e2ddd2;
+  /* Thin lines: --line between sections, the fainter --line-soft between rows. */
+  --line: #ddd8cc;
+  --line-soft: #e8e4da;
   --accent: #1b1a17;
   --accent-text: #fcfaf5;
   /* Links are the text colour, so an underline marks them. */
@@ -30,7 +45,8 @@
   /*
    * Chart colours: shades of the text colour, darkest first. Only about four
    * shades stay easy to tell apart, so the ring shows at most four slices
-   * (see chart.ts).
+   * (see chart.ts). The two palest are faint against the page; the ring's
+   * legend, its labels and the holdings table make up for that.
    */
   --series-1: #1b1a17;
   --series-2: #5f5c55;
@@ -43,23 +59,24 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Near-black, with cards in navy darkened towards it. */
-  --bg: #111417;
-  --surface: #1f2433;
-  --tint: #282d43;
-  --text: #efebe3;
-  --muted: #a6abb8;
-  --border: #3a4167;
-  --accent: #efebe3;
-  --accent-text: #111417;
-  --link-line: #6f7899;
+  --bg: #0e0e0e;
+  --raised: #1a1a1a;
+  --text: #f2f2f0;
+  --text-soft: #bdbdbd;
+  --muted: #8f8f8f;
+  --line: #262626;
+  --line-soft: #1f1f1f;
+  --accent: #f2f2f0;
+  --accent-text: #0e0e0e;
+  --link-line: #5c5c5c;
   --gain: #4cc38a;
   --loss: #f0766b;
 
-  --series-1: #efebe3;
-  --series-2: #b5b1a9;
-  --series-3: #7f7c76;
-  --series-4: #4f4d4a;
+  /* Evenly spaced in lightness, and each at least 3:1 against the page. */
+  --series-1: #f2f2f0;
+  --series-2: #c0c0c0;
+  --series-3: #909090;
+  --series-4: #636363;
 }
 
 ::selection {
@@ -75,11 +92,22 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.5 var(--font-sans);
+}
+
+/* Light text on a dark page renders heavier than its weight; this thins it back. */
+:root[data-theme="dark"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
   color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 small {
@@ -88,62 +116,69 @@ small {
   font-weight: 400;
 }
 
+h1,
+h2 {
+  margin: 0;
+  font-weight: 400;
+}
+
+h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.5rem, 2rem + 2vw, 3.5rem);
+  line-height: 1.05;
+}
+
+/* Layout */
+
 .site-header,
 main {
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 clamp(16px, 3vw, 40px);
 }
 
 .site-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 20px;
+  gap: 8px 40px;
   padding-top: 20px;
   padding-bottom: 20px;
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: var(--text);
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: 1.625rem;
+  line-height: 1;
   text-decoration: none;
 }
 
-.header-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* The light/dark switch: a square button holding an icon. */
-.icon-button {
-  display: inline-flex;
-  padding: 8px;
-}
-
-.icon-button svg {
-  width: 24px;
-  height: 24px;
+/* The mark beside the name: a rising line in a ring, in the text colour. */
+.logo {
+  flex: none;
+  width: 28px;
+  height: 28px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .site-nav {
   display: flex;
-  gap: 4px;
+  gap: 24px;
   margin-right: auto;
 }
 
 .site-nav a {
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 10px 0;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -152,24 +187,50 @@ main {
 }
 
 .site-nav a.active {
-  background: var(--surface);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 8px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* The light/dark switch: a round button holding an icon. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 main {
-  padding-bottom: 48px;
-}
-
-h1 {
-  margin: 0;
-  font-size: 1.6rem;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  padding-bottom: 64px;
 }
 
 .muted {
@@ -184,16 +245,23 @@ h1 {
   color: var(--loss);
 }
 
+/* A coloured percentage, a little heavier so the colour carries at a small size. */
+small.gain,
+small.loss {
+  font-weight: 600;
+}
+
 .notice {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--loss);
-  border-radius: 8px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--loss) 45%, var(--bg));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--loss) 6%, var(--bg));
   color: var(--loss);
   font-size: 0.9rem;
 }
 
-/* Between the stat tiles and the journal table. */
+/* Between the figures and the journal. */
 .journal-notice {
   margin: 16px 0 0;
 }
@@ -211,16 +279,24 @@ h1 {
 /* Buttons */
 
 .button {
-  display: inline-block;
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 22px;
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--accent);
   color: var(--accent-text);
   font: inherit;
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, var(--bg));
 }
 
 .button:disabled {
@@ -229,19 +305,29 @@ h1 {
 }
 
 .button.secondary {
-  border-color: var(--border);
+  border-color: var(--line);
   background: transparent;
   color: var(--text);
 }
 
+.button.secondary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text) 30%, var(--line));
+  background: var(--raised);
+}
+
 .button.danger {
-  border-color: var(--loss);
+  border-color: color-mix(in srgb, var(--loss) 45%, var(--bg));
   background: transparent;
   color: var(--loss);
 }
 
+.button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--loss) 8%, var(--bg));
+}
+
 .button.small {
-  padding: 6px 14px;
+  min-height: 40px;
+  padding: 0 16px;
   font-size: 0.9rem;
 }
 
@@ -259,6 +345,7 @@ h1 {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
@@ -266,25 +353,75 @@ h1 {
 .page-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
+  gap: 16px 24px;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin: 24px 0 8px;
 }
 
-/* Stat tiles */
+/* On a trade's page: Buy or Sell and the date, small beside the ticker. */
+.title-meta {
+  display: inline-flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-left: 4px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.title-meta .side-tag {
+  font-size: 1rem;
+}
+
+/* The headline figure */
+
+.hero {
+  padding: clamp(20px, 4vw, 44px) 0 clamp(24px, 3vw, 36px);
+}
+
+.hero-label {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.hero-figure {
+  margin: 2px 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(3.5rem, 2.9rem + 5vw, 6.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.hero-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin: 14px 0 0;
+}
+
+.delta {
+  font-weight: 600;
+}
+
+/* The figures under the headline: two by two on a phone, one row with lines between on wider screens. */
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 16px;
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 14px 16px;
+  min-width: 0;
 }
 
 .stat .label,
@@ -293,45 +430,93 @@ h1 {
   font-size: 0.85rem;
 }
 
-.stat .value {
-  font-size: 1.35rem;
-  font-weight: 650;
+.stat .label {
+  font-weight: 500;
 }
 
-.delta,
+.stat .value {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 1.55rem + 0.6vw, 2.125rem);
+  line-height: 1.15;
+}
+
 .stat .sub small {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: inherit;
+}
+
+@media (min-width: 720px) {
+  .stats {
+    grid-template-columns: none;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 0;
+    padding: 0;
+  }
+
+  .stats .stat {
+    padding: 18px 24px;
+    border-left: 1px solid var(--line);
+  }
+
+  .stats .stat:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/* A trade's other figures, on its own page: a grid with a line under each. */
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.facts-grid .stat {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.facts-grid .stat .value {
+  font-size: clamp(1.5rem, 1.4rem + 0.4vw, 1.75rem);
+}
+
+@media (min-width: 720px) {
+  .facts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 40px;
+  }
 }
 
 /* Drawn by hand, as the browser's own bar brings colours from outside the palette. */
 progress {
+  display: block;
   width: 100%;
-  height: 6px;
-  margin-top: 8px;
+  height: 3px;
+  margin-top: 10px;
   overflow: hidden;
   border: 0;
-  border-radius: 3px;
-  background: var(--border);
+  border-radius: 2px;
+  background: var(--line);
   appearance: none;
 }
 
 progress::-webkit-progress-bar {
-  background: var(--border);
+  background: var(--line);
 }
 
 progress::-webkit-progress-value {
-  border-radius: 3px;
-  background: var(--accent);
+  border-radius: 2px;
+  background: var(--text);
 }
 
 progress::-moz-progress-bar {
-  border-radius: 3px;
-  background: var(--accent);
+  border-radius: 2px;
+  background: var(--text);
 }
 
 .note-line {
-  margin: 8px 2px 0;
+  margin: 12px 0 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
@@ -339,40 +524,69 @@ progress::-moz-progress-bar {
 /* Tables */
 
 .table-wrap {
-  margin-top: 20px;
+  /*
+   * Positioned so it contains the hidden "Actions" headings: absolutely
+   * positioned text would otherwise escape the scrolling and widen the page.
+   */
+  position: relative;
+  margin-top: 40px;
   overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.93rem;
+  font-size: 0.9375rem;
 }
 
 th,
 td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 10px;
+  border-top: 1px solid var(--line-soft);
   text-align: left;
   vertical-align: top;
 }
 
-th {
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+
+thead th {
+  padding-top: 0;
+  padding-bottom: 10px;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 
-tbody:last-child tr:last-child td {
-  border-bottom: 0;
+/* A year's heading in the journal table. */
+.year th {
+  padding-top: 36px;
+  padding-bottom: 10px;
+  border-top: 0;
+  font-weight: 400;
 }
 
-.year th {
-  background: var(--tint);
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 700;
+/* The summary after a year, in both the journal table and the list. */
+.year small,
+.year-heading small {
+  font-size: 0.85rem;
+}
+
+.year-number {
+  margin-right: 12px;
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  line-height: 1;
 }
 
 .number {
@@ -386,35 +600,33 @@ tbody:last-child tr:last-child td {
 }
 
 .ticker {
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
 }
 
 a.ticker {
-  text-decoration: underline 2px var(--link-line);
-  text-underline-offset: 3px;
+  color: var(--text);
+  text-decoration-line: underline;
+  text-decoration-color: var(--link-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
-/* "Buy" or "Sell" beside a trade, in the toned-down green and red. */
+a.ticker:hover {
+  text-decoration-color: currentColor;
+}
+
+/* "Buy" or "Sell" beside a trade, in the money green and red. */
 .side-tag {
-  display: inline-block;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  line-height: 1.6;
-  vertical-align: 0.1em;
 }
 
 .side-tag.buy {
-  border-color: color-mix(in srgb, var(--gain) 45%, var(--surface));
   color: var(--gain);
 }
 
 .side-tag.sell {
-  border-color: color-mix(in srgb, var(--loss) 45%, var(--surface));
   color: var(--loss);
 }
 
@@ -438,17 +650,17 @@ a.ticker {
   color: var(--muted);
   font: inherit;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
 
 .row-actions > * + * {
-  margin-left: 14px;
+  margin-left: 16px;
 }
 
 .row-actions a:hover {
-  color: var(--accent);
+  color: var(--text);
   text-decoration: underline;
 }
 
@@ -457,23 +669,41 @@ a.ticker {
   text-decoration: underline;
 }
 
-.why {
-  color: var(--muted);
-}
-
-/* Clamp the note to two lines; the full text is on the trade page. */
+/* The note, two lines at most; the full text is on the trade's page. */
 .why span {
   display: -webkit-box;
   min-width: 200px;
   overflow: hidden;
+  color: var(--text-soft);
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-style: italic;
+  line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .empty {
-  margin-top: 24px;
-  padding: 40px 16px;
+  margin-top: 32px;
+  padding: 56px 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   text-align: center;
+}
+
+.empty p {
+  margin: 0 0 20px;
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+  line-height: 1.2;
+}
+
+/* A heading over a part of a page, such as the chart or the holdings. */
+.section-heading {
+  margin: 0 0 16px;
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 1.5rem + 1vw, 2.25rem);
+  line-height: 1.1;
 }
 
 /*
@@ -496,30 +726,37 @@ a.ticker {
 }
 
 .year-group {
-  margin-top: 20px;
+  margin-top: 36px;
 }
 
 .year-heading {
-  margin: 0 2px 8px;
-  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 8px;
+}
+
+.year-heading .year-number {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.1;
 }
 
 .trade-list {
   margin: 0;
   padding: 0;
-  overflow: hidden;
   list-style: none;
 }
 
-.trade-list > li + li {
-  border-top: 1px solid var(--border);
+.trade-list > li {
+  border-top: 1px solid var(--line-soft);
 }
 
 .trade-item summary {
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 12px 14px;
+  min-height: 64px;
+  padding: 12px 0;
   list-style: none;
   cursor: pointer;
 }
@@ -528,27 +765,21 @@ a.ticker {
   display: none;
 }
 
-.trade-item summary:hover,
-.trade-item[open] summary {
-  background: var(--tint);
-}
-
-.trade-item summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
 /* A chevron that points down when closed and up when open. */
 .trade-item summary::after {
   content: "";
   flex: none;
   width: 8px;
   height: 8px;
-  margin: 0 2px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
+  margin: 0 4px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
   transform: translateY(-2px) rotate(45deg);
   transition: transform 150ms;
+}
+
+.trade-item summary:hover::after {
+  border-color: var(--text);
 }
 
 .trade-item[open] summary::after {
@@ -564,7 +795,15 @@ a.ticker {
 }
 
 .item-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
   white-space: nowrap;
+}
+
+.item-title .ticker,
+.item-amount {
+  font-size: 1.0625rem;
 }
 
 .item-figure {
@@ -577,19 +816,18 @@ a.ticker {
 }
 
 .item-amount {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .item-body {
-  padding: 4px 14px 16px;
-  background: var(--tint);
+  padding: 4px 0 24px;
 }
 
 .facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 16px;
-  margin: 0 0 14px;
+  gap: 12px 16px;
+  margin: 0 0 20px;
 }
 
 .facts dt {
@@ -603,31 +841,48 @@ a.ticker {
 }
 
 .item-body h3 {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .item-body .prose {
-  margin: 0 0 14px;
+  margin: 0 0 20px;
+  color: var(--text-soft);
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-style: italic;
+  line-height: 1.35;
 }
 
-/* Trade report */
+/* A trade's page: why it was made, and the forecast, set like an entry in a journal. */
 
 .note {
-  margin-top: 12px;
-  padding: 16px 18px;
+  max-width: 46rem;
+  margin-top: 48px;
 }
 
-.note h2,
-.chart-card h2 {
-  margin: 0 0 6px;
-  font-size: 1rem;
+.note + .note {
+  margin-top: 36px;
+}
+
+.note h2 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .note p {
   margin: 0;
+}
+
+.note .prose {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 1.35rem + 0.7vw, 1.875rem);
+  font-style: italic;
+  line-height: 1.3;
 }
 
 .prose {
@@ -640,15 +895,15 @@ a.ticker {
 .trade-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   max-width: 680px;
-  padding: 20px;
+  margin-top: 16px;
 }
 
 .field-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
 }
 
 /* The Buy / Sell switch: two radio buttons drawn as one segmented control. */
@@ -657,10 +912,9 @@ a.ticker {
   align-self: flex-start;
   gap: 2px;
   margin: 0;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--tint);
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
 
 .side-choice label {
@@ -672,6 +926,7 @@ a.ticker {
   position: absolute;
   width: 1px;
   height: 1px;
+  min-height: 0;
   margin: 0;
   padding: 0;
   opacity: 0;
@@ -679,18 +934,18 @@ a.ticker {
 
 .side-choice span {
   display: block;
-  min-width: 96px;
-  padding: 6px 18px;
-  border-radius: 7px;
+  min-width: 100px;
+  padding: 8px 20px;
+  border-radius: 999px;
   color: var(--muted);
   text-align: center;
   cursor: pointer;
 }
 
 .side-choice input:checked + span {
-  background: var(--surface);
+  background: var(--raised);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .side-choice input[value="buy"]:checked + span {
@@ -702,14 +957,14 @@ a.ticker {
 }
 
 .side-choice input:focus-visible + span {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text);
   outline-offset: 1px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 label {
@@ -720,18 +975,25 @@ label {
 input,
 textarea {
   width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--tint);
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
   color: var(--text);
   font: inherit;
 }
 
+input:hover,
+textarea:hover {
+  border-color: color-mix(in srgb, var(--text) 25%, var(--line));
+}
+
 input:focus,
 textarea:focus {
-  border-color: var(--accent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--text);
+  outline: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
+  outline-offset: 0;
 }
 
 input[aria-invalid="true"],
@@ -739,8 +1001,17 @@ textarea[aria-invalid="true"] {
   border-color: var(--loss);
 }
 
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* The notes are written in the journal's serif, as they are shown. */
 textarea {
   resize: vertical;
+  font-family: var(--font-serif);
+  font-size: 1.1875rem;
+  line-height: 1.4;
 }
 
 .upper {
@@ -754,7 +1025,7 @@ textarea {
 .hint,
 .error {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .hint {
@@ -765,17 +1036,20 @@ textarea {
   color: var(--loss);
 }
 
-/* Portfolio chart */
+/* Portfolio: the chart, then the holdings table */
 
-.chart-card {
-  margin-top: 20px;
-  padding: 16px 18px;
+.page-section {
+  margin-top: 56px;
+}
+
+.page-section .table-wrap {
+  margin-top: 0;
 }
 
 .donut {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 32px;
+  gap: 16px 48px;
   align-items: center;
   margin: 0;
 }
@@ -797,8 +1071,8 @@ textarea {
 }
 
 .slice {
-  /* The card colour, so touching slices read as separated by a gap. */
-  stroke: var(--surface);
+  /* The page colour, so touching slices read as separated by a gap. */
+  stroke: var(--bg);
   transition: opacity 120ms;
 }
 
@@ -833,13 +1107,14 @@ textarea {
 }
 
 .donut-figure {
-  font-size: 1.1rem;
-  font-weight: 650;
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  line-height: 1.15;
 }
 
 .legend {
   flex: 1 1 260px;
-  max-width: 420px;
+  max-width: 440px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -848,17 +1123,20 @@ textarea {
 .legend li {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 0.93rem;
+  padding: 10px 8px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.95rem;
+}
+
+.legend li:first-child {
+  border-top: 0;
 }
 
 .legend li.active,
 .legend li:focus-visible {
-  background: var(--tint);
-  outline: none;
+  background: var(--raised);
 }
 
 .legend-name {
@@ -878,15 +1156,32 @@ textarea {
 
 .swatch {
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  vertical-align: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+td .swatch {
+  margin-right: 4px;
 }
 
 /* Phones */
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
+  .site-header {
+    gap: 4px 12px;
+  }
+
+  .brand {
+    gap: 8px;
+    font-size: 1.375rem;
+  }
+
+  .logo {
+    width: 26px;
+    height: 26px;
+  }
+
   .site-nav {
     order: 3;
     flex-basis: 100%;
@@ -896,16 +1191,13 @@ textarea {
     margin-left: auto;
   }
 
+  .header-actions .button {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 520px) {
   .donut-plot {
     margin: 0 auto;
-  }
-
-  .stats {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  /* A tile left alone on the last row takes the full width instead of half. */
-  .stats > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
   }
 }

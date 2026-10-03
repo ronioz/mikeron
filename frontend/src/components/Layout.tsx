@@ -7,6 +7,7 @@ export function Layout() {
     <>
       <header className="site-header">
         <Link className="brand" to="/">
+          <Logo />
           Trade Journal
         </Link>
         <nav className="site-nav" aria-label="Main">
@@ -26,5 +27,15 @@ export function Layout() {
         <Outlet />
       </main>
     </>
+  );
+}
+
+/** A rising line in a ring, drawn in the text colour. public/favicon.svg is the same mark, filled. */
+function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="14" cy="14" r="13.25" />
+      <path d="M7.5 17.5 12 13l3 3 5.5-5.5" />
+    </svg>
   );
 }

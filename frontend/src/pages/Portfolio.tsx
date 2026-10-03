@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { buildSlices, OTHER } from "../chart";
 import { DonutChart } from "../components/DonutChart";
-import { Change, PriceNote, SalesTile, StatTile, ValueTile } from "../components/figures";
+import { Change, PriceNote, SalesStat, Stat, ValueHero } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney } from "../format";
 import type { Portfolio } from "../types";
@@ -14,9 +14,8 @@ export function PortfolioPage() {
   return (
     <>
       <title>Portfolio · Trade Journal</title>
-      <div className="page-head">
-        <h1>Portfolio</h1>
-      </div>
+      {/* The tab in the header already says where this is; the heading is for screen readers. */}
+      <h1 className="visually-hidden">Portfolio</h1>
       <Loadable state={state}>
         {(portfolio) =>
           portfolio.positions.length === 0 ? (
@@ -35,9 +34,9 @@ function NoHoldings({ portfolio }: { portfolio: Portfolio }) {
     return (
       <>
         <section className="stats">
-          <SalesTile totals={portfolio} />
+          <SalesStat totals={portfolio} />
         </section>
-        <section className="card empty">
+        <section className="empty">
           <p>You don't hold anything right now. Everything you bought has been sold.</p>
           <Link className="button" to="/trades/new">
             Add a trade
@@ -47,7 +46,7 @@ function NoHoldings({ portfolio }: { portfolio: Portfolio }) {
     );
   }
   return (
-    <section className="card empty">
+    <section className="empty">
       <p>Nothing here yet. Your holdings appear once you add a trade.</p>
       <Link className="button" to="/trades/new">
         Add your first trade
@@ -65,20 +64,20 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
 
   return (
     <>
+      <ValueHero totals={portfolio} />
       <section className="stats">
-        <StatTile label="Invested">
+        <Stat label="Invested">
           <span className="value">{formatMoney(portfolio.invested)}</span>
-        </StatTile>
-        <ValueTile totals={portfolio} />
-        {portfolio.sale_count > 0 && <SalesTile totals={portfolio} />}
-        <StatTile label="Holdings">
+        </Stat>
+        {portfolio.sale_count > 0 && <SalesStat totals={portfolio} />}
+        <Stat label="Holdings">
           <span className="value">{positions.length}</span>
-        </StatTile>
+        </Stat>
       </section>
       <PriceNote totals={portfolio} />
 
-      <section className="card chart-card">
-        <h2>Share of portfolio by {basis}</h2>
+      <section className="page-section">
+        <h2 className="section-heading">Share of portfolio by {basis}</h2>
         <DonutChart
           slices={slices}
           basis={basis}
@@ -86,65 +85,68 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
         />
       </section>
 
-      <section className="card table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th className="number">Shares</th>
-              <th className="number">Avg buy price</th>
-              <th className="number">Invested</th>
-              <th className="number">Price now</th>
-              <th className="number">Value</th>
-              <th className="number">Gain</th>
-              <th className="number">Share</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((position) => (
-              <tr key={position.ticker}>
-                <td className="nowrap">
-                  <span
-                    className="swatch"
-                    style={{ background: colors.get(position.ticker) ?? colors.get(OTHER) }}
-                  />{" "}
-                  <span className="ticker">{position.ticker}</span>
-                </td>
-                <td className="number">{formatShares(position.shares)}</td>
-                <td className="number">{formatMoney(position.average_price)}</td>
-                <td className="number">{formatMoney(position.cost)}</td>
-                <td className="number">
-                  {position.current_price !== null ? formatMoney(position.current_price) : "–"}
-                </td>
-                <td className="number">
-                  {formatMoney(position.value)}
-                  {priced && position.current_price === null && <small> at cost</small>}
-                </td>
-                <td className="number">
-                  {position.gain !== null && position.gain_pct !== null ? (
-                    <>
-                      {formatSignedMoney(position.gain)} <Change percent={position.gain_pct} />
-                    </>
-                  ) : (
-                    "–"
-                  )}
-                </td>
-                <td className="number">{formatPercent(position.share_pct)}</td>
-                <td className="row-actions">
-                  <Link
-                    to={`/trades/new?side=sell&ticker=${encodeURIComponent(position.ticker)}`}
-                    aria-label={`Sell ${position.ticker}`}
-                  >
-                    Sell
-                  </Link>
-                </td>
+      <section className="page-section">
+        <h2 className="section-heading">Holdings</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th className="number">Shares</th>
+                <th className="number">Avg buy price</th>
+                <th className="number">Invested</th>
+                <th className="number">Price now</th>
+                <th className="number">Value</th>
+                <th className="number">Gain</th>
+                <th className="number">Share</th>
+                <th>
+                  <span className="visually-hidden">Actions</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {positions.map((position) => (
+                <tr key={position.ticker}>
+                  <td className="nowrap">
+                    <span
+                      className="swatch"
+                      style={{ background: colors.get(position.ticker) ?? colors.get(OTHER) }}
+                    />{" "}
+                    <span className="ticker">{position.ticker}</span>
+                  </td>
+                  <td className="number">{formatShares(position.shares)}</td>
+                  <td className="number">{formatMoney(position.average_price)}</td>
+                  <td className="number">{formatMoney(position.cost)}</td>
+                  <td className="number">
+                    {position.current_price !== null ? formatMoney(position.current_price) : "–"}
+                  </td>
+                  <td className="number">
+                    {formatMoney(position.value)}
+                    {priced && position.current_price === null && <small> at cost</small>}
+                  </td>
+                  <td className="number">
+                    {position.gain !== null && position.gain_pct !== null ? (
+                      <>
+                        {formatSignedMoney(position.gain)} <Change percent={position.gain_pct} />
+                      </>
+                    ) : (
+                      "–"
+                    )}
+                  </td>
+                  <td className="number">{formatPercent(position.share_pct)}</td>
+                  <td className="row-actions">
+                    <Link
+                      to={`/trades/new?side=sell&ticker=${encodeURIComponent(position.ticker)}`}
+                      aria-label={`Sell ${position.ticker}`}
+                    >
+                      Sell
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );

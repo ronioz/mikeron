@@ -9,6 +9,11 @@ const percent = new Intl.NumberFormat("en-US", ONE_PLACE);
 const signedPercent = new Intl.NumberFormat("en-US", { ...ONE_PLACE, signDisplay: "always" });
 const quantity = new Intl.NumberFormat("en-US", { maximumFractionDigits: 8 });
 
+// Trade dates are calendar days, so they are read and written in UTC: no time
+// zone can then move one to the day before.
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const longDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
+
 /**
  * Hands a value to Intl.NumberFormat as it is. A decimal string is read digit
  * for digit, so the long exact values the server sends are rounded as written
@@ -18,22 +23,45 @@ function exact(value: Decimal | number): number | `${number}` {
   return value as number | `${number}`;
 }
 
+/**
+ * Intl writes a negative number with a hyphen. A true minus sign is as wide as
+ * "+", so signed figures stacked in a column line up.
+ */
+function withMinus(text: string): string {
+  return text.replace("-", "−");
+}
+
 export function formatMoney(value: Decimal | number): string {
-  return money.format(exact(value));
+  return withMinus(money.format(exact(value)));
 }
 
-/** "+$4.80" or "-$1.20": the sign is always shown, so direction never depends on colour. */
+/** "+$4.80" or "−$1.20": the sign is always shown, so direction never depends on colour. */
 export function formatSignedMoney(value: Decimal): string {
-  return signedMoney.format(exact(value));
+  return withMinus(signedMoney.format(exact(value)));
 }
 
-/** "+8.0%" or "-4.0%". */
+/** "+8.0%" or "−4.0%". */
 export function formatSignedPercent(value: Decimal): string {
-  return `${signedPercent.format(exact(value))}%`;
+  return `${withMinus(signedPercent.format(exact(value)))}%`;
 }
 
 export function formatPercent(value: Decimal | number): string {
-  return `${percent.format(exact(value))}%`;
+  return `${withMinus(percent.format(exact(value)))}%`;
+}
+
+function calendarDay(isoDate: string): Date {
+  const [year = 0, month = 1, day = 1] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** "Sep 23", for trades listed under their year. */
+export function formatShortDate(isoDate: string): string {
+  return shortDate.format(calendarDay(isoDate));
+}
+
+/** "Sep 23, 2026". */
+export function formatDate(isoDate: string): string {
+  return longDate.format(calendarDay(isoDate));
 }
 
 /** Share counts without padding zeros: "0.13304000" becomes "0.13304". */

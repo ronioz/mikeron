@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { formatShares } from "./format";
+import { formatDate, formatShares } from "./format";
 import type { Trade } from "./types";
 
 /**
@@ -10,7 +10,7 @@ import type { Trade } from "./types";
  */
 export async function confirmAndDelete(trade: Trade): Promise<boolean> {
   const what = trade.side === "sell" ? "sale" : "purchase";
-  const question = `Delete the ${what} of ${formatShares(trade.shares)} ${trade.ticker} on ${trade.trade_date}? This cannot be undone.`;
+  const question = `Delete the ${what} of ${formatShares(trade.shares)} ${trade.ticker} on ${formatDate(trade.trade_date)}? This cannot be undone.`;
   if (!window.confirm(question)) return false;
   await api.deleteTrade(trade.id);
   return true;

@@ -174,7 +174,8 @@ app/                   backend
 migrations/            Alembic migrations
 frontend/              React + TypeScript app
   src/
-    main.tsx           routes
+    main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
+                       bundled from npm so no font service is called)
     api.ts             every call to the backend
     types.ts           shapes of the API responses
     format.ts          money, percentages, dates
@@ -182,10 +183,11 @@ frontend/              React + TypeScript app
     theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours
     useApi.ts          loading data, with periodic refresh
-    components/        layout, trade form, ring chart, stat tiles, the journal's
-                       tap-to-open trade lines for phones and narrow windows
+    components/        layout, trade form, ring chart, headline figure and stats,
+                       the journal's tap-to-open trade lines for phones and
+                       narrow windows
     pages/             journal, portfolio, trade report, add / edit
-    styles.css
+    styles.css         the look: colours and type for both themes, then layout
 ```
 
 How the numbers flow: the backend does all the arithmetic with exact decimals

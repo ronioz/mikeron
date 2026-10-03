@@ -140,7 +140,7 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save
         <h1>{heading}</h1>
       </div>
 
-      <form className="card trade-form" onSubmit={submit}>
+      <form className="trade-form" onSubmit={submit}>
         <fieldset className="side-choice">
           <legend className="visually-hidden">Buy or sell</legend>
           {SIDES.map(({ side, label }) => (

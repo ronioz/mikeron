@@ -12,7 +12,7 @@ export function Loadable<T>({ state, children }: Props<T>) {
   if (state.data === undefined) {
     if (state.error) {
       return (
-        <section className="card empty" role="alert">
+        <section className="empty" role="alert">
           <p>{state.error.message}</p>
           <button className="button secondary" type="button" onClick={state.reload}>
             Try again
