@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { buildSlices, OTHER } from "../chart";
 import { DonutChart } from "../components/DonutChart";
-import { Change, PriceNote, StatTile, ValueTile } from "../components/figures";
+import { Change, PriceNote, SalesTile, StatTile, ValueTile } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney } from "../format";
 import type { Portfolio } from "../types";
@@ -19,14 +19,33 @@ export function PortfolioPage() {
       </div>
       <Loadable state={state}>
         {(portfolio) =>
-          portfolio.positions.length === 0 ? <NoHoldings /> : <Holdings portfolio={portfolio} />
+          portfolio.positions.length === 0 ? (
+            <NoHoldings portfolio={portfolio} />
+          ) : (
+            <Holdings portfolio={portfolio} />
+          )
         }
       </Loadable>
     </>
   );
 }
 
-function NoHoldings() {
+function NoHoldings({ portfolio }: { portfolio: Portfolio }) {
+  if (portfolio.sale_count > 0) {
+    return (
+      <>
+        <section className="stats">
+          <SalesTile totals={portfolio} />
+        </section>
+        <section className="card empty">
+          <p>You don't hold anything right now. Everything you bought has been sold.</p>
+          <Link className="button" to="/trades/new">
+            Add a trade
+          </Link>
+        </section>
+      </>
+    );
+  }
   return (
     <section className="card empty">
       <p>Nothing here yet. Your holdings appear once you add a trade.</p>
@@ -47,10 +66,11 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
   return (
     <>
       <section className="stats">
-        <StatTile label="Total invested">
+        <StatTile label="Invested">
           <span className="value">{formatMoney(portfolio.invested)}</span>
         </StatTile>
         <ValueTile totals={portfolio} />
+        {portfolio.sale_count > 0 && <SalesTile totals={portfolio} />}
         <StatTile label="Holdings">
           <span className="value">{positions.length}</span>
         </StatTile>
@@ -78,6 +98,9 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
               <th className="number">Value</th>
               <th className="number">Gain</th>
               <th className="number">Share</th>
+              <th>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -110,6 +133,14 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
                   )}
                 </td>
                 <td className="number">{formatPercent(position.share_pct)}</td>
+                <td className="row-actions">
+                  <Link
+                    to={`/trades/new?side=sell&ticker=${encodeURIComponent(position.ticker)}`}
+                    aria-label={`Sell ${position.ticker}`}
+                  >
+                    Sell
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

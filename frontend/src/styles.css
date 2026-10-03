@@ -150,6 +150,21 @@ h1 {
   font-size: 0.9rem;
 }
 
+/* Between the stat tiles and the journal table. */
+.journal-notice {
+  margin: 16px 0 0;
+}
+
+/* Read out by screen readers, but not drawn. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Buttons */
 
 .button {
@@ -180,6 +195,18 @@ h1 {
   border-color: var(--loss);
   background: transparent;
   color: var(--loss);
+}
+
+/* A button that reads as a link, for a small action inside a line of text. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .actions {
@@ -296,6 +323,63 @@ tbody:last-child tr:last-child td {
   text-decoration: none;
 }
 
+/* "Buy" or "Sell" beside a trade. Sales get the stronger outline so they stand out in a list. */
+.side-tag {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.6;
+  vertical-align: 0.1em;
+}
+
+.side-tag.sell {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* A smaller line under a cell's main figure: a percentage, shares left, the trade type. */
+.second-line {
+  display: block;
+  margin-top: 2px;
+}
+
+/* Edit and Delete, or Sell, at the end of a table row. */
+.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.row-actions a,
+.row-actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row-actions > * + * {
+  margin-left: 14px;
+}
+
+.row-actions a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.row-actions button:hover {
+  color: var(--loss);
+  text-decoration: underline;
+}
+
 .why {
   color: var(--muted);
 }
@@ -351,6 +435,53 @@ tbody:last-child tr:last-child td {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
+}
+
+/* The Buy / Sell switch: two radio buttons drawn as one segmented control. */
+.side-choice {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.side-choice label {
+  position: relative;
+}
+
+/* Not drawn, but still focusable and switched by clicking its label. */
+.side-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.side-choice span {
+  display: block;
+  min-width: 96px;
+  padding: 6px 18px;
+  border-radius: 7px;
+  color: var(--muted);
+  text-align: center;
+  cursor: pointer;
+}
+
+.side-choice input:checked + span {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.side-choice input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .field {

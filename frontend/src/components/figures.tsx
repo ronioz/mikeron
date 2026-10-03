@@ -33,9 +33,22 @@ export function Delta({ amount, percent }: { amount: Decimal; percent: Decimal }
   );
 }
 
+/** False once everything bought has been sold, or before anything was bought. */
+function holdsAnything(totals: Totals): boolean {
+  return Number(totals.invested) > 0;
+}
+
 /** The "Current value" tile shared by the journal and the portfolio. */
 export function ValueTile({ totals }: { totals: Totals }) {
   const { current_value: value, gain, gain_pct: gainPct } = totals;
+  if (!holdsAnything(totals)) {
+    return (
+      <StatTile label="Current value">
+        <span className="value">{formatMoney(0)}</span>
+        <span className="sub">Nothing held right now</span>
+      </StatTile>
+    );
+  }
   return (
     <StatTile label="Current value">
       {value !== null && gain !== null && gainPct !== null ? (
@@ -55,8 +68,24 @@ export function ValueTile({ totals }: { totals: Totals }) {
   );
 }
 
+/** What all sales so far have gained or lost, compared with what the shares cost. */
+export function SalesTile({ totals }: { totals: Totals }) {
+  const gain = totals.realized_gain;
+  const count = totals.sale_count;
+  return (
+    <StatTile label="Gain from sales">
+      <span className={`value ${Number(gain) >= 0 ? "gain" : "loss"}`}>{formatSignedMoney(gain)}</span>
+      <span className="sub">
+        from {count} {count === 1 ? "sale" : "sales"}
+      </span>
+    </StatTile>
+  );
+}
+
 /** Says how fresh the prices are and which holdings have none. */
 export function PriceNote({ totals }: { totals: Totals }) {
+  // With nothing held there are no prices to talk about.
+  if (!holdsAnything(totals)) return null;
   if (!totals.prices_enabled) {
     return (
       <p className="note-line">

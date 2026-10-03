@@ -1,19 +1,27 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Numeric, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 
+BUY = "buy"
+SELL = "sell"
+
 
 class Trade(Base):
+    """A purchase or a sale. Sales leave the forecast and price targets empty."""
+
     __tablename__ = "trades"
+    __table_args__ = (CheckConstraint("side IN ('buy', 'sell')", name="ck_trades_side"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    side: Mapped[str] = mapped_column(String(4), server_default=BUY)
     ticker: Mapped[str] = mapped_column(String(12), index=True)
-    buy_price: Mapped[Decimal] = mapped_column(Numeric(18, 4))
-    # 8 decimal places so fractional-share purchases are stored exactly.
+    # The price per share that was paid, or received for a sale.
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 4))
+    # 8 decimal places so fractional-share trades are stored exactly.
     shares: Mapped[Decimal] = mapped_column(Numeric(18, 8))
     trade_date: Mapped[date] = mapped_column(index=True)
     thesis: Mapped[str] = mapped_column(Text)
@@ -28,21 +36,22 @@ class Trade(Base):
     )
 
     @property
-    def cost(self) -> Decimal:
-        return self.buy_price * self.shares
+    def amount(self) -> Decimal:
+        """What changed hands: the cost of a purchase or the proceeds of a sale."""
+        return self.price * self.shares
 
     @property
     def take_profit_pct(self) -> Decimal | None:
-        return self._pct_from_buy(self.take_profit)
+        return self._pct_from_price(self.take_profit)
 
     @property
     def stop_loss_pct(self) -> Decimal | None:
-        return self._pct_from_buy(self.stop_loss)
+        return self._pct_from_price(self.stop_loss)
 
-    def _pct_from_buy(self, price: Decimal | None) -> Decimal | None:
-        if price is None:
+    def _pct_from_price(self, target: Decimal | None) -> Decimal | None:
+        if target is None:
             return None
-        return (price - self.buy_price) / self.buy_price * 100
+        return (target - self.price) / self.price * 100
 
 
 class Quote(Base):

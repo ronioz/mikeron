@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 node_modules/
 frontend/dist/
+# Database dumps hold personal trade data.
+backups/

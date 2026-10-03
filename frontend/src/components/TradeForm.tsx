@@ -2,13 +2,14 @@ import { type FormEvent, type InputHTMLAttributes, type ReactNode, useState } fr
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "../api";
-import type { Trade, TradeInput } from "../types";
+import { formatShares, trimZeros } from "../format";
+import type { Position, Side, Trade, TradeInput } from "../types";
 
 interface FieldProps {
   name: keyof TradeInput;
   label: string;
   optional?: boolean;
-  hint?: string;
+  hint?: ReactNode;
   error: string | undefined;
   children: ReactNode;
 }
@@ -43,7 +44,7 @@ const NUMBER: InputHTMLAttributes<HTMLInputElement> = {
   autoComplete: "off",
 };
 
-const NUMBER_FIELDS = ["buy_price", "shares", "take_profit", "stop_loss"] as const;
+const NUMBER_FIELDS = ["price", "shares", "take_profit", "stop_loss"] as const;
 
 /** Keypads in comma-decimal regions only offer a comma, so "71,05" is accepted as 71.05. */
 function withDecimalPoints(values: TradeInput): TradeInput {
@@ -52,28 +53,47 @@ function withDecimalPoints(values: TradeInput): TradeInput {
   return result;
 }
 
+/**
+ * What gets sent. A sale has no plan, so the hidden plan fields are cleared
+ * rather than sent along, where a leftover typo would fail without a visible field.
+ */
+function toPayload(values: TradeInput): TradeInput {
+  const input = withDecimalPoints(values);
+  return input.side === "sell" ? { ...input, forecast: "", take_profit: "", stop_loss: "" } : input;
+}
+
+const SIDES: { side: Side; label: string }[] = [
+  { side: "buy", label: "Buy" },
+  { side: "sell", label: "Sell" },
+];
+
 interface Props {
   heading: string;
   initial: TradeInput;
   /** Where "Cancel" goes. */
   cancelTo: string;
+  /** Where to go after saving. The saved trade's page when not given. */
+  returnTo?: string;
+  /** What is held now, to help fill in a sale. Leave out when editing a saved trade. */
+  holdings?: Position[];
   save: (input: TradeInput) => Promise<Trade>;
 }
 
-export function TradeForm({ heading, initial, cancelTo, save }: Props) {
+export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, save }: Props) {
   const navigate = useNavigate();
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const selling = values.side === "sell";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setProblem(undefined);
     try {
-      const trade = await save(withDecimalPoints(values));
-      navigate(`/trades/${trade.id}`);
+      const trade = await save(toPayload(values));
+      navigate(returnTo ?? `/trades/${trade.id}`);
     } catch (reason) {
       if (!(reason instanceof ApiError)) throw reason;
       setErrors(reason.fields);
@@ -83,15 +103,36 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
     }
   }
 
+  const set = (name: keyof TradeInput, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+
   // Wires an input to its entry in `values`.
   const bind = (name: keyof TradeInput) => ({
     id: name,
     name,
     value: values[name],
     "aria-invalid": errors[name] ? true : undefined,
-    onChange: (event: { target: { value: string } }) =>
-      setValues((current) => ({ ...current, [name]: event.target.value })),
+    onChange: (event: { target: { value: string } }) => set(name, event.target.value),
   });
+
+  // For a new sale: how many shares of the typed ticker are held, with a way to sell them all.
+  let sharesHint: ReactNode = "Fractional shares are fine, e.g. 0.1348";
+  if (selling && holdings) {
+    const ticker = values.ticker.trim().toUpperCase();
+    const held = holdings.find((position) => position.ticker === ticker);
+    if (held) {
+      sharesHint = (
+        <>
+          You hold {formatShares(held.shares)} {held.ticker}.{" "}
+          <button className="link-button" type="button" onClick={() => set("shares", trimZeros(held.shares))}>
+            Sell all
+          </button>
+        </>
+      );
+    } else if (ticker) {
+      sharesHint = `You don't hold any ${ticker} right now.`;
+    }
+  }
 
   return (
     <>
@@ -100,6 +141,22 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
       </div>
 
       <form className="card trade-form" onSubmit={submit}>
+        <fieldset className="side-choice">
+          <legend className="visually-hidden">Buy or sell</legend>
+          {SIDES.map(({ side, label }) => (
+            <label key={side}>
+              <input
+                type="radio"
+                name="side"
+                value={side}
+                checked={values.side === side}
+                onChange={() => set("side", side)}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </fieldset>
+
         <div className="field-row">
           <Field name="ticker" label="Ticker" error={errors.ticker}>
             <input
@@ -112,7 +169,15 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
               placeholder="AAPL"
               autoCapitalize="characters"
               autoComplete="off"
+              list={selling && holdings ? "held-tickers" : undefined}
             />
+            {selling && holdings && (
+              <datalist id="held-tickers">
+                {holdings.map((position) => (
+                  <option key={position.ticker} value={position.ticker} />
+                ))}
+              </datalist>
+            )}
           </Field>
           <Field name="trade_date" label="Date" error={errors.trade_date}>
             <input {...bind("trade_date")} type="date" required />
@@ -120,15 +185,10 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
         </div>
 
         <div className="field-row">
-          <Field name="buy_price" label="Buy price ($)" error={errors.buy_price}>
-            <input {...bind("buy_price")} {...NUMBER} required />
+          <Field name="price" label={selling ? "Sell price ($)" : "Buy price ($)"} error={errors.price}>
+            <input {...bind("price")} {...NUMBER} required />
           </Field>
-          <Field
-            name="shares"
-            label="Shares"
-            hint="Fractional shares are fine, e.g. 0.1348"
-            error={errors.shares}
-          >
+          <Field name="shares" label="Shares" hint={sharesHint} error={errors.shares}>
             <input
               {...bind("shares")}
               {...NUMBER}
@@ -139,40 +199,48 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
           </Field>
         </div>
 
-        <div className="field-row">
-          <Field
-            name="take_profit"
-            label="Take profit at ($)"
-            optional
-            hint="Price where you plan to sell for a gain"
-            error={errors.take_profit}
-          >
-            <input {...bind("take_profit")} {...NUMBER} />
-          </Field>
-          <Field
-            name="stop_loss"
-            label="Stop loss at ($)"
-            optional
-            hint="Price where you plan to sell to limit a loss"
-            error={errors.stop_loss}
-          >
-            <input {...bind("stop_loss")} {...NUMBER} />
-          </Field>
-        </div>
+        {!selling && (
+          <div className="field-row">
+            <Field
+              name="take_profit"
+              label="Take profit at ($)"
+              optional
+              hint="Price where you plan to sell for a gain"
+              error={errors.take_profit}
+            >
+              <input {...bind("take_profit")} {...NUMBER} />
+            </Field>
+            <Field
+              name="stop_loss"
+              label="Stop loss at ($)"
+              optional
+              hint="Price where you plan to sell to limit a loss"
+              error={errors.stop_loss}
+            >
+              <input {...bind("stop_loss")} {...NUMBER} />
+            </Field>
+          </div>
+        )}
 
-        <Field name="thesis" label="Why did you buy?" error={errors.thesis}>
+        <Field
+          name="thesis"
+          label={selling ? "Why did you sell?" : "Why did you buy?"}
+          error={errors.thesis}
+        >
           <textarea {...bind("thesis")} rows={5} maxLength={5000} required />
         </Field>
 
-        <Field
-          name="forecast"
-          label="Forecast"
-          optional
-          hint="What do you expect to happen, and by when?"
-          error={errors.forecast}
-        >
-          <textarea {...bind("forecast")} rows={4} maxLength={5000} />
-        </Field>
+        {!selling && (
+          <Field
+            name="forecast"
+            label="Forecast"
+            optional
+            hint="What do you expect to happen, and by when?"
+            error={errors.forecast}
+          >
+            <textarea {...bind("forecast")} rows={4} maxLength={5000} />
+          </Field>
+        )}
 
         {problem && (
           <p className="error" role="alert">
@@ -182,7 +250,7 @@ export function TradeForm({ heading, initial, cancelTo, save }: Props) {
 
         <div className="actions">
           <button className="button" type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save trade"}
+            {saving ? "Saving…" : selling ? "Save sale" : "Save trade"}
           </button>
           <Link className="button secondary" to={cancelTo}>
             Cancel

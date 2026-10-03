@@ -1,13 +1,19 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    field_validator,
+    model_validator,
+)
 
 # Limits mirror the NUMERIC column definitions in models.py.
 Price = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=4)]
 Shares = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=8)]
-
 
 # Ratios can have endless decimals (60 / 0.27), so they are cut off on the way
 # out. Eight places is far more than any screen shows: whoever displays the
@@ -29,10 +35,12 @@ PerShare = Ratio
 class TradeIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
+    side: Literal["buy", "sell"] = "buy"
     ticker: Annotated[str, Field(min_length=1, max_length=12, pattern=r"^[A-Za-z0-9.\-]+$")]
-    buy_price: Price
+    price: Price
     shares: Shares
     trade_date: date
+    # Why the trade was made: the reason for buying, or for selling.
     thesis: Annotated[str, Field(min_length=1, max_length=5000)]
     forecast: Annotated[str, Field(max_length=5000)] = ""
     take_profit: Price | None = None
@@ -51,32 +59,56 @@ class TradeIn(BaseModel):
             return None
         return value
 
+    @model_validator(mode="after")
+    def sales_have_no_plan(self) -> Self:
+        # A forecast and price targets describe a purchase. A sale only records what happened.
+        if self.side == "sell":
+            self.forecast = ""
+            self.take_profit = None
+            self.stop_loss = None
+        return self
+
 
 class TradeOut(TradeIn):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    cost: Decimal
+    # Price times shares: the cost of a purchase or the proceeds of a sale.
+    amount: Decimal
     take_profit_pct: Percent | None
     stop_loss_pct: Percent | None
     created_at: datetime
     updated_at: datetime
-    # Live valuation, all None when there is no price for the ticker.
+
+    # The latest price of the ticker, when one is known.
     current_price: Decimal | None = None
+    price_at: datetime | None = None
+
+    # Purchases only: how many of these shares are still held. Sales use up the
+    # oldest shares of a ticker first.
+    remaining_shares: Decimal | None = None
+    # Purchases only: what the shares still held are worth, and their gain so
+    # far. None without a live price or once everything has been sold.
     current_value: Decimal | None = None
     gain: Decimal | None = None
     gain_pct: Percent | None = None
-    price_at: datetime | None = None
+
+    # The gain actually made: on a sale, or on the sold part of a purchase.
+    # None for a purchase that hasn't been sold from.
+    realized_gain: Decimal | None = None
+    realized_gain_pct: Percent | None = None
+    # Sales only: what the shares sold had cost to buy.
+    cost_basis: Decimal | None = None
 
 
 class Position(BaseModel):
-    """Every trade in one ticker, added together."""
+    """The shares of one ticker that are still held."""
 
     ticker: str
     shares: Decimal
     cost: Decimal
     average_price: PerShare
-    trade_count: int
+    # When the ticker was first bought. Keeps its place and colour in the chart stable.
     first_trade_date: date
     current_price: Decimal | None
     # Market value, or the cost when there is no live price, so totals still add up.
@@ -88,11 +120,15 @@ class Position(BaseModel):
 
 
 class Totals(BaseModel):
+    # What the shares still held cost to buy.
     invested: Decimal
     # None when live prices are off or nothing could be priced.
     current_value: Decimal | None = None
     gain: Decimal | None = None
     gain_pct: Percent | None = None
+    # Gain made on every sale so far.
+    realized_gain: Decimal
+    sale_count: int
     # Tickers counted at cost because no live price is available for them.
     unpriced: list[str] = []
     # Age of the oldest price used.
@@ -107,11 +143,13 @@ class Portfolio(Totals):
 class YearTotal(BaseModel):
     year: int
     trade_count: int
-    invested: Decimal
+    bought: Decimal
+    sold: Decimal
 
 
 class Summary(Totals):
     trade_count: int
+    # Purchases this month, to compare with the monthly budget.
     this_month: Decimal
     monthly_budget: Decimal
     years: list[YearTotal]

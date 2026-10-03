@@ -2,9 +2,10 @@
 
 A personal trade journal. For every buy you record the ticker, price, number of
 shares, date, why you bought, what you expect to happen, and the prices at which
-you plan to sell (take profit / stop loss). The journal then shows what each
-holding is worth now, and a portfolio page shows how your money is spread across
-tickers.
+you plan to sell (take profit / stop loss). When you sell, you record the price,
+shares and why you sold, and the journal works out what the sale gained or lost.
+The journal shows what each holding is worth now, and a portfolio page shows how
+your money is spread across tickers.
 
 - **Backend:** FastAPI, SQLAlchemy and PostgreSQL, serving a JSON API under `/api`.
 - **Frontend:** React and TypeScript, built with Vite, in `frontend/`.
@@ -23,6 +24,37 @@ Docker volume, so it survives restarts and rebuilds.
 - App: <http://localhost:8000>
 - JSON API docs: <http://localhost:8000/docs>
 - Health check: <http://localhost:8000/healthz>
+
+## Buying, selling and fixing mistakes
+
+- **Add trade** opens a form with a Buy / Sell switch. A sale asks for the sell
+  price, the shares sold and why you sold; it has no forecast or target prices.
+- **Sell** next to each holding on the Portfolio page, and on the page of a
+  purchase you still hold, opens that form ready to sell the ticker. It shows how
+  many shares you hold, and **Sell all** fills them in, so fractional amounts
+  such as 0.13304 never have to be typed by hand.
+- **Edit** and **Delete** are on every row of the journal and on each trade's
+  page. Deleting asks first.
+
+How the numbers work:
+
+- Shares are sold oldest first (first in, first out). Selling 12 shares when you
+  bought 10 at $10 and then 5 at $20 uses all 10 of the first purchase and 2 of
+  the second, so the sale's cost is $140. What it gained is the amount received
+  minus that cost.
+- A purchase that sales used up shows how many of its shares are left; once all
+  are sold it shows "all sold".
+- **Invested** is what the shares you still hold cost. **Gain from sales**
+  (often called realised gain) adds up what every sale gained or lost. The gain
+  shown under **Current value** is on the shares you still hold.
+- A sale can't use more shares than you held on its date. The same check covers
+  edits: the app refuses a change, such as deleting or shrinking a purchase, that
+  would leave a later sale without enough shares, and says which sale is in the
+  way.
+
+Nothing about which shares a sale used is stored. It is worked out from the
+trades each time (`app/ledger.py`), so edits and deletions can never leave it out
+of date.
 
 ## Live prices
 
@@ -102,6 +134,22 @@ uv run alembic upgrade head
 
 Review the generated file in `migrations/versions/` before committing it.
 
+### Backups
+
+Your trades live in the `pgdata` Docker volume. The first command saves a copy.
+The other three put a copy back, replacing everything in the database with it;
+use the name of the file you want, and restarting `web` brings an older copy up
+to date with any newer migrations.
+
+```sh
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/trades-$(date +%F).sql
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE \"$POSTGRES_DB\" WITH (FORCE)" -c "CREATE DATABASE \"$POSTGRES_DB\""'
+docker compose exec -T db sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < backups/trades-2026-10-03.sql
+docker compose restart web
+```
+
+The `backups/` folder is kept out of git, since the copies hold your trades.
+
 ## Project layout
 
 ```
@@ -111,7 +159,8 @@ app/                   backend
   db.py                database engine and session
   models.py            the trades and quotes tables
   schemas.py           what the API accepts and returns
-  crud.py              database queries
+  crud.py              database queries, and the check that every sale has the shares it needs
+  ledger.py            which purchased shares each sale used (oldest first)
   prices.py            live prices: Finnhub client and the cache in front of it
   portfolio.py         the arithmetic: values, gains, positions, totals
   deps.py              login check, cross-site request check, trade lookup
@@ -125,6 +174,7 @@ frontend/              React + TypeScript app
     api.ts             every call to the backend
     types.ts           shapes of the API responses
     format.ts          money, percentages, dates
+    deleteTrade.ts     asks before deleting a trade
     chart.ts           which slices the portfolio ring shows, and their colours
     useApi.ts          loading data, with periodic refresh
     components/        layout, trade form, ring chart, stat tiles

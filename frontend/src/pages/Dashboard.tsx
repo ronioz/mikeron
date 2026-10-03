@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { api } from "../api";
-import { Change, PriceNote, StatTile, ValueTile } from "../components/figures";
+import { Change, PriceNote, SalesTile, StatTile, ValueTile } from "../components/figures";
 import { Loadable } from "../components/Loadable";
-import { formatMoney, formatShares } from "../format";
+import { confirmAndDelete } from "../deleteTrade";
+import { formatMoney, formatShares, formatSignedMoney } from "../format";
 import type { Decimal, Summary, Trade } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
@@ -14,7 +16,11 @@ export function Dashboard() {
       <title>Trade Journal</title>
       <Loadable state={state}>
         {([summary, trades]) =>
-          trades.length === 0 ? <NoTrades /> : <Journal summary={summary} trades={trades} />
+          trades.length === 0 ? (
+            <NoTrades />
+          ) : (
+            <Journal summary={summary} trades={trades} reload={state.reload} />
+          )
         }
       </Loadable>
     </>
@@ -43,17 +49,38 @@ function groupByYear(trades: Trade[]): Map<number, Trade[]> {
   return groups;
 }
 
-function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
+// Brings a message into view when it appears. Defined once so React calls it
+// only when the message mounts, not on every re-render.
+const scrollIntoView = (node: HTMLElement | null) => node?.scrollIntoView({ block: "nearest" });
+
+interface JournalProps {
+  summary: Summary;
+  trades: Trade[];
+  reload: () => void;
+}
+
+function Journal({ summary, trades, reload }: JournalProps) {
+  const [problem, setProblem] = useState<string>();
   const byYear = groupByYear(trades);
   const budget = Number(summary.monthly_budget);
+
+  async function remove(trade: Trade) {
+    setProblem(undefined);
+    try {
+      if (await confirmAndDelete(trade)) reload();
+    } catch (reason) {
+      setProblem(reason instanceof Error ? reason.message : "Could not delete the trade.");
+    }
+  }
 
   return (
     <>
       <section className="stats">
-        <StatTile label="Total invested">
+        <StatTile label="Invested">
           <span className="value">{formatMoney(summary.invested)}</span>
         </StatTile>
         <ValueTile totals={summary} />
+        {summary.sale_count > 0 && <SalesTile totals={summary} />}
         <StatTile label="Trades">
           <span className="value">{summary.trade_count}</span>
         </StatTile>
@@ -65,6 +92,12 @@ function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
       </section>
       <PriceNote totals={summary} />
 
+      {problem && (
+        <p key={problem} ref={scrollIntoView} className="notice journal-notice" role="alert">
+          {problem}
+        </p>
+      )}
+
       {/* One table for all years so the columns line up from one year to the next. */}
       <section className="card table-wrap">
         <table>
@@ -73,26 +106,30 @@ function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
               <th>Date</th>
               <th>Ticker</th>
               <th className="number">Shares</th>
-              <th className="number">Buy price</th>
-              <th className="number">Cost</th>
+              <th className="number">Price</th>
+              <th className="number">Amount</th>
               <th className="number">Value now</th>
               <th className="number">Take profit</th>
               <th className="number">Stop loss</th>
               <th>Why</th>
+              <th>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
-          {summary.years.map(({ year, trade_count: count, invested }) => (
+          {summary.years.map(({ year, trade_count: count, bought, sold }) => (
             <tbody key={year}>
               <tr className="year">
-                <th colSpan={9} scope="rowgroup">
+                <th colSpan={10} scope="rowgroup">
                   {year}{" "}
                   <small>
-                    {count} {count === 1 ? "trade" : "trades"} · {formatMoney(invested)} invested
+                    {count} {count === 1 ? "trade" : "trades"} · {formatMoney(bought)} bought
+                    {Number(sold) > 0 && ` · ${formatMoney(sold)} sold`}
                   </small>
                 </th>
               </tr>
               {(byYear.get(year) ?? []).map((trade) => (
-                <TradeRow key={trade.id} trade={trade} />
+                <TradeRow key={trade.id} trade={trade} onDelete={remove} />
               ))}
             </tbody>
           ))}
@@ -102,17 +139,53 @@ function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
   );
 }
 
-/** A dollar amount with its percentage change from the buy price, or a dash when unknown. */
+// Cells keep to a main figure with a smaller second line under it (a percentage,
+// what is left, the trade type), so the table stays narrow enough for the Edit
+// and Delete buttons to fit on a laptop screen.
+
+/** A dollar amount with its percentage change from the buy price under it, or a dash when unknown. */
 function Amount({ value, change }: { value: Decimal | null; change: Decimal | null }) {
   if (value === null || change === null) return <>–</>;
   return (
     <>
-      {formatMoney(value)} <Change percent={change} />
+      {formatMoney(value)}
+      <span className="second-line">
+        <Change percent={change} />
+      </span>
     </>
   );
 }
 
-function TradeRow({ trade }: { trade: Trade }) {
+/** What a sale made or lost compared with what its shares cost. */
+function SaleResult({ trade }: { trade: Trade }) {
+  const { realized_gain: gain, realized_gain_pct: percent } = trade;
+  if (gain === null || percent === null) return <>–</>;
+  return (
+    <>
+      <small>{Number(gain) >= 0 ? "gain" : "loss"}</small> {formatSignedMoney(gain)}
+      <span className="second-line">
+        <Change percent={percent} />
+      </span>
+    </>
+  );
+}
+
+/** Under a purchase's share count: how much of it later sales used up. */
+function SharesLeft({ trade }: { trade: Trade }) {
+  // Only purchases that have been sold from carry a realised gain.
+  if (trade.realized_gain === null || trade.remaining_shares === null) return null;
+  const left = trade.remaining_shares;
+  return (
+    <small className="second-line">
+      {Number(left) === 0 ? "all sold" : `${formatShares(left)} left`}
+    </small>
+  );
+}
+
+function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) => void }) {
+  const sale = trade.side === "sell";
+  // The row buttons only say "Edit" and "Delete"; this tells a screen reader which trade.
+  const which = `${sale ? "sale" : "purchase"} of ${trade.ticker} on ${trade.trade_date}`;
   return (
     <tr>
       <td className="nowrap">{trade.trade_date}</td>
@@ -120,12 +193,22 @@ function TradeRow({ trade }: { trade: Trade }) {
         <Link className="ticker" to={`/trades/${trade.id}`}>
           {trade.ticker}
         </Link>
+        <span className="second-line">
+          <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>
+        </span>
       </td>
-      <td className="number">{formatShares(trade.shares)}</td>
-      <td className="number">{formatMoney(trade.buy_price)}</td>
-      <td className="number">{formatMoney(trade.cost)}</td>
       <td className="number">
-        <Amount value={trade.current_value} change={trade.gain_pct} />
+        {formatShares(trade.shares)}
+        <SharesLeft trade={trade} />
+      </td>
+      <td className="number">{formatMoney(trade.price)}</td>
+      <td className="number">{formatMoney(trade.amount)}</td>
+      <td className="number">
+        {sale ? (
+          <SaleResult trade={trade} />
+        ) : (
+          <Amount value={trade.current_value} change={trade.gain_pct} />
+        )}
       </td>
       <td className="number">
         <Amount value={trade.take_profit} change={trade.take_profit_pct} />
@@ -135,6 +218,14 @@ function TradeRow({ trade }: { trade: Trade }) {
       </td>
       <td className="why">
         <span>{trade.thesis}</span>
+      </td>
+      <td className="row-actions">
+        <Link to={`/trades/${trade.id}/edit`} state={{ from: "/" }} aria-label={`Edit ${which}`}>
+          Edit
+        </Link>
+        <button type="button" onClick={() => onDelete(trade)} aria-label={`Delete ${which}`}>
+          Delete
+        </button>
       </td>
     </tr>
   );

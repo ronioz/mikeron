@@ -7,34 +7,62 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
 
-from app.models import Quote, Trade
+from app.ledger import Ledger, Lot, build_ledger
+from app.models import SELL, Quote, Trade
 from app.schemas import Portfolio, Position, Summary, Totals, TradeOut, YearTotal
 
 ZERO = Decimal(0)
 
 
-def value_trade(trade: Trade, quotes: Mapping[str, Quote]) -> TradeOut:
+def value_trades(trades: Sequence[Trade], quotes: Mapping[str, Quote]) -> list[TradeOut]:
+    """Describe each trade with its outcome so far.
+
+    `trades` must hold every trade of each ticker involved, since what happened
+    to a purchase depends on the sales that came after it.
+    """
+    ledger = build_ledger(trades)
+    return [_value_trade(trade, ledger, quotes) for trade in trades]
+
+
+def _value_trade(trade: Trade, ledger: Ledger, quotes: Mapping[str, Quote]) -> TradeOut:
     out = TradeOut.model_validate(trade)
     quote = quotes.get(trade.ticker)
-    if quote is not None and quote.price is not None:
-        out.current_price = quote.price
-        out.current_value = trade.shares * quote.price
-        out.gain = out.current_value - trade.cost
-        out.gain_pct = out.gain / trade.cost * 100
+    price = quote.price if quote is not None else None
+    if quote is not None and price is not None:
+        out.current_price = price
         out.price_at = quote.fetched_at
+
+    if trade.side == SELL:
+        sale = ledger.sales[trade.id]
+        out.cost_basis = sale.cost
+        out.realized_gain = sale.gain
+        out.realized_gain_pct = sale.gain / sale.cost * 100
+        return out
+
+    lot = ledger.lots[trade.id]
+    out.remaining_shares = lot.remaining
+    if lot.sold > 0:
+        out.realized_gain = lot.realized
+        out.realized_gain_pct = lot.realized / (lot.sold * trade.price) * 100
+    if price is not None and lot.remaining > 0:
+        out.current_value = lot.remaining * price
+        out.gain = lot.remaining * (price - trade.price)
+        out.gain_pct = (price - trade.price) / trade.price * 100
     return out
 
 
-def build_positions(trades: Sequence[Trade], quotes: Mapping[str, Quote]) -> list[Position]:
-    """Group trades by ticker, largest holding first."""
-    by_ticker: dict[str, list[Trade]] = {}
-    for trade in trades:
-        by_ticker.setdefault(trade.ticker, []).append(trade)
+def build_positions(ledger: Ledger, quotes: Mapping[str, Quote]) -> list[Position]:
+    """Add up what is still held of each ticker, largest holding first."""
+    by_ticker: dict[str, list[Lot]] = {}
+    for lot in ledger.lots.values():
+        by_ticker.setdefault(lot.trade.ticker, []).append(lot)
 
     positions = []
-    for ticker, group in by_ticker.items():
-        shares = sum((trade.shares for trade in group), ZERO)
-        cost = sum((trade.cost for trade in group), ZERO)
+    for ticker, lots in by_ticker.items():
+        shares = sum((lot.remaining for lot in lots), ZERO)
+        if shares == 0:
+            continue
+        cost = sum((lot.remaining * lot.trade.price for lot in lots), ZERO)
         quote = quotes.get(ticker)
         price = quote.price if quote is not None else None
         value = shares * price if price is not None else cost
@@ -44,8 +72,7 @@ def build_positions(trades: Sequence[Trade], quotes: Mapping[str, Quote]) -> lis
                 shares=shares,
                 cost=cost,
                 average_price=cost / shares,
-                trade_count=len(group),
-                first_trade_date=min(trade.trade_date for trade in group),
+                first_trade_date=min(lot.trade.trade_date for lot in lots),
                 current_price=price,
                 value=value,
                 gain=value - cost if price is not None else None,
@@ -61,10 +88,19 @@ def build_positions(trades: Sequence[Trade], quotes: Mapping[str, Quote]) -> lis
 
 
 def _totals(
-    positions: Sequence[Position], quotes: Mapping[str, Quote], *, prices_enabled: bool
+    positions: Sequence[Position],
+    ledger: Ledger,
+    quotes: Mapping[str, Quote],
+    *,
+    prices_enabled: bool,
 ) -> Totals:
     invested = sum((position.cost for position in positions), ZERO)
-    totals = Totals(invested=invested, prices_enabled=prices_enabled)
+    totals = Totals(
+        invested=invested,
+        realized_gain=sum((sale.gain for sale in ledger.sales.values()), ZERO),
+        sale_count=len(ledger.sales),
+        prices_enabled=prices_enabled,
+    )
     if not prices_enabled:
         return totals
 
@@ -83,8 +119,9 @@ def _totals(
 def build_portfolio(
     trades: Sequence[Trade], quotes: Mapping[str, Quote], *, prices_enabled: bool
 ) -> Portfolio:
-    positions = build_positions(trades, quotes)
-    totals = _totals(positions, quotes, prices_enabled=prices_enabled)
+    ledger = build_ledger(trades)
+    positions = build_positions(ledger, quotes)
+    totals = _totals(positions, ledger, quotes, prices_enabled=prices_enabled)
     return Portfolio(positions=positions, **totals.model_dump())
 
 
@@ -101,14 +138,19 @@ def build_summary(
     for trade in trades:
         traded = trade.trade_date
         year = years.setdefault(
-            traded.year, YearTotal(year=traded.year, trade_count=0, invested=ZERO)
+            traded.year, YearTotal(year=traded.year, trade_count=0, bought=ZERO, sold=ZERO)
         )
         year.trade_count += 1
-        year.invested += trade.cost
+        if trade.side == SELL:
+            year.sold += trade.amount
+            continue
+        year.bought += trade.amount
         if (traded.year, traded.month) == (today.year, today.month):
-            this_month += trade.cost
+            this_month += trade.amount
 
-    totals = _totals(build_positions(trades, quotes), quotes, prices_enabled=prices_enabled)
+    ledger = build_ledger(trades)
+    positions = build_positions(ledger, quotes)
+    totals = _totals(positions, ledger, quotes, prices_enabled=prices_enabled)
     return Summary(
         trade_count=len(trades),
         this_month=this_month,

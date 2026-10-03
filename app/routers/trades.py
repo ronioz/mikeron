@@ -1,11 +1,14 @@
-from fastapi import APIRouter, status
+from decimal import Decimal
+
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.db import DbSession
 from app.deps import CurrentTrade
+from app.ledger import OversoldError
 from app.models import Trade
-from app.portfolio import value_trade
+from app.portfolio import value_trades
 from app.prices import QuoteCache, Quotes
 from app.schemas import TradeIn, TradeOut
 
@@ -13,19 +16,53 @@ router = APIRouter(prefix="/trades", tags=["trades"])
 
 
 def _valued(trade: Trade, db: Session, quotes: QuoteCache) -> TradeOut:
-    return value_trade(trade, quotes.get(db, [trade.ticker]))
+    # What happened to a purchase depends on later sales of the same ticker.
+    related = crud.list_trades(db, ticker=trade.ticker)
+    valued = value_trades(related, quotes.get(db, [trade.ticker]))
+    return next(out for out in valued if out.id == trade.id)
+
+
+def _plain(number: Decimal) -> str:
+    return f"{number.normalize():f}"
+
+
+def _not_enough_shares(problem: OversoldError) -> HTTPException:
+    if problem.direct:
+        # The sale being saved is the one that doesn't fit, so the message
+        # belongs next to its share count in the form.
+        held = f"only held {_plain(problem.held)}" if problem.held > 0 else "held no"
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=[
+                {
+                    "type": "not_enough_shares",
+                    "loc": ["body", "shares"],
+                    "msg": f"You {held} {problem.ticker} on {problem.on}.",
+                }
+            ],
+        )
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            f"That would leave your sale of {_plain(problem.wanted)} {problem.ticker} "
+            f"on {problem.on} without enough shares. Change or delete that sale first."
+        ),
+    )
 
 
 @router.get("")
 def list_trades(db: DbSession, quotes: Quotes) -> list[TradeOut]:
     trades = crud.list_trades(db)
-    latest = quotes.get(db, {trade.ticker for trade in trades})
-    return [value_trade(trade, latest) for trade in trades]
+    return value_trades(trades, quotes.get(db, {trade.ticker for trade in trades}))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_trade(data: TradeIn, db: DbSession, quotes: Quotes) -> TradeOut:
-    return _valued(crud.create_trade(db, data), db, quotes)
+    try:
+        trade = crud.create_trade(db, data)
+    except OversoldError as problem:
+        raise _not_enough_shares(problem) from problem
+    return _valued(trade, db, quotes)
 
 
 @router.get("/{trade_id}")
@@ -35,9 +72,16 @@ def get_trade(trade: CurrentTrade, db: DbSession, quotes: Quotes) -> TradeOut:
 
 @router.put("/{trade_id}")
 def update_trade(trade: CurrentTrade, data: TradeIn, db: DbSession, quotes: Quotes) -> TradeOut:
-    return _valued(crud.update_trade(db, trade, data), db, quotes)
+    try:
+        trade = crud.update_trade(db, trade, data)
+    except OversoldError as problem:
+        raise _not_enough_shares(problem) from problem
+    return _valued(trade, db, quotes)
 
 
 @router.delete("/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_trade(trade: CurrentTrade, db: DbSession) -> None:
-    crud.delete_trade(db, trade)
+    try:
+        crud.delete_trade(db, trade)
+    except OversoldError as problem:
+        raise _not_enough_shares(problem) from problem
