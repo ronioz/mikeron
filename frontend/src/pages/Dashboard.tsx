@@ -127,7 +127,7 @@ function Journal({ summary, trades, reload }: JournalProps) {
           {summary.years.map((total) => (
             <tbody key={total.year}>
               <tr className="year">
-                <th colSpan={10} scope="rowgroup">
+                <th colSpan={9} scope="rowgroup">
                   <span className="year-number">{total.year}</span> <YearSummary total={total} />
                 </th>
               </tr>
@@ -175,18 +175,18 @@ function YearSummary({ total }: { total: YearTotal }) {
 /**
  * The column names, under each year's heading. A <thead> can't go there: a
  * table has only one, and it is drawn above the first year's heading.
+ * Take profit and stop loss are left to each trade's own page.
  */
 function ColumnNames() {
   return (
     <tr className="column-names">
       <th scope="col">Date</th>
+      <th scope="col">Broker</th>
       <th scope="col">Ticker</th>
       <th scope="col" className="number">Shares</th>
       <th scope="col" className="number">Price</th>
       <th scope="col" className="number">Amount</th>
       <th scope="col" className="number">Value now</th>
-      <th scope="col" className="number">Take profit</th>
-      <th scope="col" className="number">Stop loss</th>
       <th scope="col">Why</th>
       <th scope="col">
         <span className="visually-hidden">Actions</span>
@@ -269,13 +269,14 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) 
     <tr>
       {/* The year is in the heading row above. */}
       <td className="nowrap">{formatShortDate(trade.trade_date)}</td>
+      {/* "Other" stores no broker: a dash, like the table's other empty cells. */}
+      <td>{trade.broker ? <BrokerBadge broker={trade.broker} /> : "–"}</td>
       <td>
         <Link className="ticker" to={`/trades/${trade.id}`}>
           {trade.ticker}
         </Link>
         <span className="second-line">
-          <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
-          <BrokerBadge broker={trade.broker} />
+          <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>
         </span>
       </td>
       <td className="number">
@@ -293,12 +294,6 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) 
         ) : (
           <Amount value={trade.current_value} change={trade.gain_pct} />
         )}
-      </td>
-      <td className="number">
-        <Amount value={trade.take_profit} change={trade.take_profit_pct} />
-      </td>
-      <td className="number">
-        <Amount value={trade.stop_loss} change={trade.stop_loss_pct} />
       </td>
       <td className="why">
         <span>{trade.thesis}</span>

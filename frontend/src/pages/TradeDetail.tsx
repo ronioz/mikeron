@@ -4,17 +4,10 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api";
 import { isMoney, reinvested } from "../cash";
 import { BrokerBadge } from "../components/BrokerBadge";
-import { Change, Delta, Hero, Stat } from "../components/figures";
+import { AsOf, Change, Delta, Hero, PriceLine, Stat } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { confirmAndDelete } from "../deleteTrade";
-import {
-  formatDate,
-  formatMoney,
-  formatShares,
-  formatSignedMoney,
-  formatSignedPercent,
-  formatTime,
-} from "../format";
+import { formatDate, formatMoney, formatShares, formatSignedMoney, formatSignedPercent } from "../format";
 import type { Decimal, Trade } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
@@ -74,11 +67,13 @@ function Report({ trade }: { trade: Trade }) {
       )}
 
       {sale ? <SaleFigures trade={trade} /> : <PurchaseFigures trade={trade} />}
-      <p className="note-line">
-        {trade.price_at !== null
-          ? `Price as of ${formatTime(trade.price_at)}.`
-          : `No live price is available for ${trade.ticker}.`}
-      </p>
+      <PriceLine>
+        {trade.price_at !== null ? (
+          <AsOf what="Price" at={trade.price_at} />
+        ) : (
+          `No live price is available for ${trade.ticker}.`
+        )}
+      </PriceLine>
 
       <section className="note">
         <h2>{sale ? "Why I sold" : "Why I bought"}</h2>

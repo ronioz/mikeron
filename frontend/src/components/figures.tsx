@@ -134,28 +134,55 @@ export function SalesStat({ totals }: { totals: Totals }) {
   );
 }
 
+/**
+ * The line saying how fresh the prices are, or why there are none. It has a
+ * clock and is brighter than the notes elsewhere, so it's seen at a glance:
+ * every figure above it depends on it.
+ */
+export function PriceLine({ children }: { children: ReactNode }) {
+  return (
+    <p className="price-line">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" />
+      </svg>
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/** "Prices as of 03:17 PM.", with the time standing out. */
+export function AsOf({ what, at }: { what: string; at: string }) {
+  return (
+    <>
+      {what} as of <strong>{formatTime(at)}</strong>.
+    </>
+  );
+}
+
 /** Says how fresh the prices are and which holdings have none. */
 export function PriceNote({ totals }: { totals: Totals }) {
   // With nothing held there are no prices to talk about.
   if (!holdsAnything(totals)) return null;
   if (!totals.prices_enabled) {
     return (
-      <p className="note-line">
-        Live prices are off. Add a Finnhub API key to turn them on (see the README).
-      </p>
+      <PriceLine>Live prices are off. Add a Finnhub API key to turn them on (see the README).</PriceLine>
     );
   }
   if (totals.price_at === null) {
-    return <p className="note-line">No live prices are available right now.</p>;
+    return <PriceLine>No live prices are available right now.</PriceLine>;
   }
   const missing = totals.unpriced;
   return (
-    <p className="note-line">
-      Prices as of {formatTime(totals.price_at)}.
-      {missing.length > 0 &&
-        ` No live price for ${missing.join(", ")}, so ${
-          missing.length === 1 ? "it is" : "they are"
-        } counted at what you paid.`}
-    </p>
+    <PriceLine>
+      <AsOf what="Prices" at={totals.price_at} />
+      {missing.length > 0 && (
+        <span className="muted">
+          {` No live price for ${missing.join(", ")}, so ${
+            missing.length === 1 ? "it is" : "they are"
+          } counted at what you paid.`}
+        </span>
+      )}
+    </PriceLine>
   );
 }
