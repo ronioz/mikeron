@@ -22,11 +22,18 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-trades}:${POSTGRES_PASSWORD:-trades}@db:5432/${POSTGRES_DB:-trades}
-      MONTHLY_BUDGET: ${MONTHLY_BUDGET:-30}
-      APP_USERNAME: ${APP_USERNAME:-admin}
-      APP_PASSWORD: ${APP_PASSWORD:-}
       FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
       PRICE_TTL_SECONDS: ${PRICE_TTL_SECONDS:-60}
+      SIGN_UP_OPEN: ${SIGN_UP_OPEN:-true}
+      SESSION_DAYS: ${SESSION_DAYS:-90}
+      MAIL_BACKEND: ${MAIL_BACKEND:-log}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # Read by uvicorn: which proxies it believes about visitors' addresses and HTTPS.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
     ports:
       # Reachable from this machine only unless BIND_ADDRESS says otherwise.
       - "${BIND_ADDRESS:-127.0.0.1}:8000:8000"

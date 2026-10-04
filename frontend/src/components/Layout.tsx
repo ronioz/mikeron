@@ -14,6 +14,7 @@ export function Layout() {
             Journal
           </NavLink>
           <NavLink to="/portfolio">Portfolio</NavLink>
+          <NavLink to="/account">Account</NavLink>
         </nav>
         <div className="header-actions">
           <ThemeMenu />

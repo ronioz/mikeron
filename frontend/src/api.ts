@@ -1,4 +1,13 @@
-import type { Portfolio, Summary, Trade, TradeInput } from "./types";
+import type {
+  Account,
+  AuthOptions,
+  CodeSent,
+  Portfolio,
+  SignedIn,
+  Summary,
+  Trade,
+  TradeInput,
+} from "./types";
 
 /** A failed API call. `fields` holds one message per rejected form field. */
 export class ApiError extends Error {
@@ -32,8 +41,16 @@ function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, typeof detail === "string" ? detail : `Request failed (${status}).`);
 }
 
-// Every call to the backend goes through here, which makes it the one place
-// to attach a login token once the app has user accounts.
+// Told when a request finds nobody signed in, such as when a session ran out
+// on another tab. The account provider (account.tsx) listens.
+let signedOutListener: (() => void) | undefined;
+
+export function onSignedOut(listener: (() => void) | undefined): void {
+  signedOutListener = listener;
+}
+
+// Every call to the backend goes through here. The browser sends the session
+// cookie by itself, since the API is on the same site as the pages.
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -41,6 +58,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(0, "Could not reach the server.");
   }
+  // The sign-in pages expect 401 for a wrong password; anywhere else it means
+  // the session is gone.
+  if (response.status === 401 && !path.startsWith("/auth/")) signedOutListener?.();
   if (response.status === 204) return undefined as T;
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw toApiError(response.status, body);
@@ -63,4 +83,35 @@ export const api = {
   deleteTrade: (id: number) => request<void>(`/trades/${id}`, { method: "DELETE" }),
   getSummary: () => request<Summary>("/summary"),
   getPortfolio: () => request<Portfolio>("/portfolio"),
+
+  getAccount: () => request<Account>("/me"),
+  setMonthlyBudget: (monthlyBudget: string) =>
+    request<Account>("/me", json("PATCH", { monthly_budget: monthlyBudget })),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>(
+      "/me/password",
+      json("PUT", { current_password: currentPassword, new_password: newPassword }),
+    ),
+  signOutOtherDevices: () => request<void>("/me/sessions", { method: "DELETE" }),
+  deleteAccount: (password: string) => request<void>("/me/delete", json("POST", { password })),
+};
+
+/** Signing up, in and out. Codes arrive by email; see app/routers/auth.py. */
+export const auth = {
+  options: () => request<AuthOptions>("/auth/options"),
+  signUp: (email: string, password: string) =>
+    request<CodeSent>("/auth/sign-up", json("POST", { email, password })),
+  confirm: (email: string, code: string) =>
+    request<SignedIn>("/auth/confirm", json("POST", { email, code })),
+  resendCode: (email: string) => request<CodeSent>("/auth/resend-code", json("POST", { email })),
+  signIn: (email: string, password: string) =>
+    request<SignedIn>("/auth/sign-in", json("POST", { email, password })),
+  forgotPassword: (email: string) =>
+    request<CodeSent>("/auth/forgot-password", json("POST", { email })),
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    request<SignedIn>(
+      "/auth/reset-password",
+      json("POST", { email, code, new_password: newPassword }),
+    ),
+  signOut: () => request<void>("/auth/sign-out", { method: "POST" }),
 };

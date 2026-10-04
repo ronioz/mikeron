@@ -1,5 +1,5 @@
-from decimal import Decimal
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,10 +11,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://trades:trades@localhost:5432/trades"
-    monthly_budget: Decimal = Decimal(30)
-    app_username: str = "admin"
-    # Empty password disables the login prompt (fine locally, set one when hosting).
-    app_password: str = ""
+    # Whether anyone can create an account. Existing accounts work either way.
+    sign_up_open: bool = True
+    # How long a browser or the app stays signed in after it was last used.
+    session_days: int = 90
+    # "log" writes emails into the server log instead of sending them, fine on
+    # one computer. "smtp" sends them through the server below (Resend's, say).
+    mail_backend: Literal["log", "smtp"] = "log"
+    smtp_host: str = ""
+    # 465 is encrypted from the start; any other port (587) upgrades with STARTTLS.
+    smtp_port: int = 465
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # Who emails come from, such as "Mikeronn <codes@example.com>".
+    mail_from: str = ""
     # Empty key turns live prices off; everything else keeps working.
     finnhub_api_key: str = ""
     finnhub_base_url: str = "https://finnhub.io/api/v1"

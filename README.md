@@ -1,15 +1,19 @@
 # Mikeronn
 
 A personal trade journal. For every buy you record the ticker, price, number of
-shares, date, why you bought, what you expect to happen, and the prices at which
-you plan to sell (take profit / stop loss). When you sell, you record the price,
-shares and why you sold, and the journal works out what the sale gained or lost.
-The journal shows what each holding is worth now, and a portfolio page shows how
-your money is spread across tickers.
+shares, date, the broker you placed it with, why you bought, what you expect to
+happen, and the prices at which you plan to sell (take profit / stop loss). When
+you sell, you record the price, shares and why you sold, and the journal works
+out what the sale gained or lost. The journal shows what each holding is worth
+now, and a portfolio page shows how your money is spread across tickers.
+
+Everyone signs in with their own account and sees only their own journal.
 
 - **Backend:** FastAPI, SQLAlchemy and PostgreSQL, serving a JSON API under `/api`.
 - **Frontend:** React and TypeScript, built with Vite, in `frontend/`.
 - **Live prices:** Finnhub, cached in the database.
+- **Email:** sign-up and password-reset codes, sent over SMTP (Resend, for example),
+  or written to the server log until that is set up.
 
 ## Run it
 
@@ -17,9 +21,11 @@ your money is spread across tickers.
 docker compose up --build
 ```
 
-Then open <http://localhost:8000>. The image builds the frontend, database
-migrations run automatically on startup, and your data lives in the `pgdata`
-Docker volume, so it survives restarts and rebuilds.
+Then open <http://localhost:8000> and create an account. The image builds the
+frontend, database migrations run automatically on startup, and your data lives
+in the `pgdata` Docker volume, so it survives restarts and rebuilds. Until email
+is set up (see [Email](#email)), the code that confirms your address is in the
+server log: `docker compose logs web`.
 
 The sun/moon button in the header switches between the light and dark theme.
 Until you use it, the app follows your device's setting; after that it
@@ -49,6 +55,12 @@ remembers your choice in that browser.
   broker's statement; leave it empty when there was none. A purchase's fee is
   added to what it cost, a sale's comes off what it brought in, and the
   **Fees** figure on the Portfolio page adds them all up.
+- **Broker** says where the trade was placed: TBC Bank or Bank of Georgia,
+  shown as a small tag in the bank's colour, or Other. A new trade starts with
+  the broker of the one you recorded last. It is a label only: shares, cash and
+  gains are counted across brokers together. To add a broker, add it to
+  `Broker` in `app/schemas.py` and to `BROKERS` in `frontend/src/brokers.ts`,
+  with a colour in `styles.css`; the database needs no change.
 
 How the numbers work:
 
@@ -89,6 +101,51 @@ stored. Both are worked out from the trades each time (`app/ledger.py`,
 `app/cash.py`), so edits and deletions can never leave them out of date.
 Deleting a sale turns the purchases it paid for back into new money.
 
+## Accounts
+
+- **Creating an account** takes an email address and a password of at least 8
+  characters. A 6-digit code is emailed to the address; typing it in confirms
+  the address and signs you in. An address that is never confirmed is forgotten
+  after a week, so it can sign up again.
+- **Signing in** keeps a browser signed in for 90 days after it was last used.
+- **Forgot your password?** on the sign-in page emails a code for choosing a new
+  one. Choosing it signs out every other device.
+- **Account** in the header has your monthly plan (the amount the journal's
+  "This month" compares with), changing your password, signing out (this
+  device, or every other one) and deleting your account with every trade in it.
+
+Each account sees, sells from and changes only its own trades: one person's
+shares never cover another's sale, and someone else's trade is "not found".
+Live prices are shared, since a price is the same for everyone.
+
+Codes are sent at most once a minute and five times an hour to an address, and
+wrong passwords and codes are limited too. No answer says whether an address has
+an account: signing up and asking for a reset code get the same reply either
+way.
+
+`SIGN_UP_OPEN=false` stops new accounts; existing ones keep working. Whoever
+runs the server can set any account's password from the command line:
+
+```sh
+docker compose exec web python -m app.manage set-password you@example.com
+```
+
+### Upgrading a journal from before accounts
+
+The trades recorded before accounts existed need an owner. The database upgrade
+asks for the owner's address and stops until it gets one, so stop the app, build
+it, and run the upgrade yourself:
+
+```sh
+docker compose stop web
+docker compose build web
+docker compose run --rm web alembic -x owner_email=you@example.com upgrade head
+docker compose up -d web
+docker compose exec web python -m app.manage set-password you@example.com
+```
+
+The owner's address counts as confirmed; the last command chooses its password.
+
 ## Live prices
 
 The app works without them: values and gains simply show a dash. To turn them on:
@@ -109,6 +166,34 @@ Things to know:
 - If Finnhub can't be reached, the last known prices stay on screen with the
   time they were fetched.
 
+## Email
+
+With the default `MAIL_BACKEND=log`, emails aren't sent: each one, code
+included, is written to the server log (`docker compose logs web`). That's
+enough on your own computer. To send them, with [Resend](https://resend.com):
+
+1. Create a free account (3,000 emails a month, at most 100 a day) and add your
+   domain. Resend shows a few DNS records to add at your domain's registrar.
+   Without a domain, Resend only delivers to your own account's address, which
+   is enough to try it.
+2. Create an API key.
+3. In `.env`, set:
+
+   ```sh
+   MAIL_BACKEND=smtp
+   SMTP_HOST=smtp.resend.com
+   SMTP_PORT=465
+   SMTP_USERNAME=resend
+   SMTP_PASSWORD=re_your_api_key
+   MAIL_FROM=Mikeronn <codes@your-domain.com>
+   ```
+
+   Without a domain yet, use `MAIL_FROM=onboarding@resend.dev`.
+4. Run `docker compose up -d`.
+
+Any other provider with SMTP works the same way with its own settings. An email
+that can't be sent is reported in the server log.
+
 ## Configuration
 
 Copy `.env.example` to `.env` to change any of these.
@@ -117,9 +202,13 @@ Copy `.env.example` to `.env` to change any of these.
 | --- | --- | --- |
 | `FINNHUB_API_KEY` | empty | Finnhub key. Empty turns live prices off |
 | `PRICE_TTL_SECONDS` | `60` | How long a fetched price is reused |
-| `MONTHLY_BUDGET` | `30` | Monthly amount shown on the dashboard |
-| `APP_USERNAME` | `admin` | Login user name |
-| `APP_PASSWORD` | empty | Login password. Empty disables the login prompt |
+| `SIGN_UP_OPEN` | `true` | Whether new accounts can be created |
+| `SESSION_DAYS` | `90` | How long a device stays signed in after it was last used |
+| `MAIL_BACKEND` | `log` | `log` writes emails to the server log; `smtp` sends them |
+| `SMTP_HOST` / `SMTP_PORT` | empty / `465` | Mail server. Port 465 is encrypted from the start; others use STARTTLS |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | Mail server login (for Resend: `resend` and the API key) |
+| `MAIL_FROM` | empty | Who emails come from, such as `Mikeronn <codes@example.com>` |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-*` headers uvicorn trusts (see Hosting) |
 | `BIND_ADDRESS` | `127.0.0.1` | Interface the app is published on. `0.0.0.0` allows other devices |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `trades` | Database credentials |
 | `DATABASE_URL` | set by compose | Full connection URL, for hosts with managed Postgres |
@@ -152,9 +241,17 @@ to the backend on port 8000. The backend reads the same `.env` file, so a
 Checks:
 
 ```sh
+uv run pytest       # needs the database container running
 npm run typecheck   # in frontend/
-uvx ruff check app migrations
+uvx ruff check app migrations tests
 ```
+
+The tests cover accounts: signing up, in and out, codes, password resets, that
+no account can see or touch another's trades, deleting an account, and the
+upgrade of a journal from before accounts. They make their own databases
+(`mikeronn_test` and `mikeronn_migration_test`) on the database server and drop
+them afterwards; they refuse to run against the real one. Prices come from a
+stand-in and emails go to a list in memory, so nothing is sent anywhere.
 
 ### Changing the database schema
 
@@ -190,53 +287,72 @@ app/                   backend
   main.py              app setup, routing, serves the built frontend
   config.py            settings read from environment variables
   db.py                database engine and session
-  models.py            the trades and quotes tables
+  models.py            the tables: users, sessions, emailed codes, trades, quotes
   schemas.py           what the API accepts and returns
-  crud.py              database queries, and the check that every sale has the shares it needs
+  crud.py              trade queries, each for one account, and the check that
+                       every sale has the shares it needs
+  accounts.py          accounts in the database: sign-ups, sessions, codes
+  security.py          password hashing (Argon2), session tokens, codes
+  limits.py            caps on sign-in, sign-up and code attempts
+  mail.py              the emails, written to the log or sent over SMTP
+  manage.py            command line: set an account's password
   ledger.py            which purchased shares each sale used (oldest first)
   cash.py              the cash sales leave, and which purchases reused it
   prices.py            live prices: Finnhub client and the cache in front of it
   portfolio.py         the arithmetic: values, gains, positions, totals
-  deps.py              login check, cross-site request check, trade lookup
+  deps.py              who is signed in, cross-site request check, trade lookup
   routers/
+    auth.py            /api/auth: sign up, confirm, sign in and out, reset
+    account.py         /api/me: the signed-in account
     trades.py          /api/trades
     portfolio.py       /api/summary and /api/portfolio
 migrations/            Alembic migrations
+tests/                 pytest: accounts, isolation between them, the upgrade
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
                        bundled from npm so no font service is called)
+    account.tsx        who is signed in, and which pages need someone to be
     api.ts             every call to the backend
     types.ts           shapes of the API responses
+    brokers.ts         the brokers a trade can name
     format.ts          money, percentages, dates
     cash.ts            how much of a purchase was paid with cash from sales
     deleteTrade.ts     asks before deleting a trade
     theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours
     useApi.ts          loading data, with periodic refresh
-    components/        layout, trade form, ring chart, headline figure and stats,
-                       the journal's tap-to-open trade lines for phones and
-                       narrow windows
-    pages/             journal, portfolio, trade report, add / edit
+    components/        layouts, trade form, broker tags, the emailed-code step,
+                       ring chart, headline figure and stats, the journal's
+                       tap-to-open trade lines for phones and narrow windows
+    pages/             journal, portfolio, trade report, add / edit, sign in,
+                       create an account, reset a password, account
     styles.css         the look: colours and type for both themes, then layout
 ```
 
 How the numbers flow: the backend does all the arithmetic with exact decimals
 and sends amounts as strings. The frontend only formats them.
 
-## Adding user accounts later
+## Adding the iPhone app later
 
-The app is single-user today, with one optional shared password. It is laid out
-so that accounts, login and registration can be added without restructuring:
+The JSON API is ready for a native app, which would be a second client next to
+the website, showing the figures the server works out:
 
-- **Backend:** every API route passes through `require_login` in `app/deps.py`.
-  That is the one function to replace with one that identifies the signed-in
-  user. Trades then need a `user_id` column (a migration), and the queries in
-  `app/crud.py` filter by it. The price cache is keyed by ticker, so it can stay
-  shared between users.
-- **Frontend:** every request goes through `request()` in `frontend/src/api.ts`,
-  the place to attach a session and to send people to a login page on a 401.
-  New pages such as `/login` and `/register` are routes in `main.tsx`.
+- **Signing in:** the same `/api/auth` calls, with `"client": "app"` in the
+  body. The reply then carries a `token` (and when it expires unless used)
+  instead of setting a cookie. The app keeps it in the Keychain and sends
+  `Authorization: Bearer <token>` with every request; signing out ends it.
+- **Codes, not links,** in the emails, so the app needs no universal links:
+  the person types the code, or iOS offers it from Mail.
+- **Deleting an account** from inside the app, which the App Store requires of
+  any app that creates accounts: `POST /api/me/delete`.
+- **A typed client:** FastAPI describes the API at `/openapi.json`, which Apple's
+  swift-openapi-generator can turn into Swift code.
+- **Before the first release:** host the backend (an iPhone can't reach your
+  computer's `localhost`), and keep the API's shapes stable from then on, or
+  move it under `/api/v1`, since people don't update apps at once. Adding Sign
+  in with Apple later means a column for Apple's user id, and revoking Apple's
+  tokens when an account is deleted.
 
 ## Hosting
 
@@ -244,8 +360,14 @@ The image listens on `$PORT` (default 8000) and only needs `DATABASE_URL`, so it
 runs on a VPS with `docker compose up -d` or on any container host with a managed
 Postgres. Before putting it on the public internet:
 
-- Set `APP_PASSWORD`, and change `POSTGRES_PASSWORD` from the default.
-- Serve it over HTTPS. The login uses HTTP Basic auth, which sends the password
-  with every request. On a VPS, a reverse proxy such as Caddy on the same machine
-  can provide HTTPS and forward to `127.0.0.1:8000`, so `BIND_ADDRESS` can stay
-  at its default.
+- Change `POSTGRES_PASSWORD` from the default.
+- Serve it over HTTPS, so passwords, codes and the session cookie are never sent
+  unencrypted. On a VPS, a reverse proxy such as Caddy on the same machine can
+  provide HTTPS and forward to `127.0.0.1:8000`, so `BIND_ADDRESS` can stay at
+  its default. Then set `FORWARDED_ALLOW_IPS=*` (safe while only this machine
+  can reach the app), so the app sees visitors' addresses for its limits and
+  marks the cookie as HTTPS-only.
+- Set up email (see [Email](#email)) with your domain, or nobody can confirm
+  their address.
+- Opening sign-up to the public also needs a privacy policy, and a live-price
+  plan that allows it: Finnhub's free plan is for personal, non-commercial use.

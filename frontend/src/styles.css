@@ -11,8 +11,9 @@
  *
  * Colour: black, white and greys, with green and red as the only colours,
  * kept for money (gains and losses, buys and sells, and the warnings about
- * them). The light theme is creamy white and black; the dark theme is a
- * neutral near-black, with no tint.
+ * them). The one exception is the broker tags, in each bank's own colour.
+ * The light theme is creamy white and black; the dark theme is a neutral
+ * near-black, with no tint.
  *
  * The theme is the data-theme attribute on <html>, set before the page draws
  * (index.html) and changed by the switch in the header (theme.ts).
@@ -55,6 +56,15 @@
   --series-4: #cfcac0;
   /* Never shown together with series 4: "Other" takes its place. */
   --series-other: var(--series-4);
+
+  /*
+   * The brokers' own colours, taken from their websites, the same in both
+   * themes: TBC Bank's cyan and Bank of Georgia's orange. Their tags use dark
+   * text, at 7.7:1 and 6.4:1; white would be 2.5:1 and 3:1.
+   */
+  --broker-tbc: #00afef;
+  --broker-bog: #ff6022;
+  --broker-text: #0e0e0e;
 }
 
 :root[data-theme="dark"] {
@@ -719,6 +729,31 @@ a.ticker:hover {
   color: var(--loss);
 }
 
+/* Which broker a trade was placed with: its short name on the bank's colour. */
+.broker {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  color: var(--broker-text);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  vertical-align: 0.08em;
+}
+
+.broker.tbc {
+  background: var(--broker-tbc);
+}
+
+.broker.bog {
+  background: var(--broker-bog);
+}
+
+.title-meta .broker {
+  font-size: 0.8rem;
+}
+
 /* A smaller line under a cell's main figure: a percentage, shares left, the trade type. */
 .second-line {
   display: block;
@@ -1014,7 +1049,8 @@ a.ticker:hover {
   opacity: 0;
 }
 
-.segmented span {
+/* The option itself; spans inside it, such as a broker tag, keep their own look. */
+.segmented label > span {
   display: block;
   min-width: 100px;
   padding: 8px 20px;
@@ -1022,6 +1058,10 @@ a.ticker:hover {
   color: var(--muted);
   text-align: center;
   cursor: pointer;
+}
+
+.broker-choice .broker {
+  font-size: 0.8rem;
 }
 
 .segmented input:checked + span {
@@ -1128,6 +1168,79 @@ textarea {
 
 .error {
   color: var(--loss);
+}
+
+/* Signing in, creating an account, resetting a password: a narrow form under the title. */
+
+/* With no navigation in the header, the theme switch goes to the right. */
+.auth-header .header-actions {
+  margin-left: auto;
+}
+
+.auth-page h1 {
+  margin-top: 24px;
+}
+
+.lede {
+  max-width: 36rem;
+  margin: 12px 0 0;
+  color: var(--text-soft);
+  font-size: 1.0625rem;
+}
+
+.auth-form,
+.setting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 420px;
+}
+
+.auth-form {
+  margin-top: 28px;
+}
+
+.auth-switch {
+  margin: 28px 0 0;
+  color: var(--muted);
+}
+
+/* The account page: one setting after another, split by lines. */
+
+.settings {
+  max-width: 680px;
+}
+
+.settings > .lede {
+  margin-bottom: 28px;
+}
+
+.setting {
+  padding: 28px 0;
+  border-top: 1px solid var(--line);
+}
+
+.setting h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+.setting-intro {
+  max-width: 36rem;
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+/* A setting with no introduction: the same room under its heading. */
+.setting h2 + .setting-form {
+  margin-top: 20px;
+}
+
+.setting .actions + .hint,
+.setting .actions + .error {
+  margin-top: 12px;
 }
 
 /* Portfolio: the chart, then the holdings table */

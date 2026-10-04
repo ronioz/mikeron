@@ -1,18 +1,32 @@
-import secrets
+from collections.abc import Hashable
+from datetime import datetime
 from typing import Annotated
 from urllib.parse import urlsplit
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
 
-from app import crud
-from app.config import get_settings
+from app import accounts, crud
 from app.db import DbSession
-from app.models import Trade
-
-basic_auth = HTTPBasic(auto_error=False)
+from app.limits import Limit
+from app.models import WEB, Trade, User, UserSession
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+# The cookie that keeps a browser signed in. Page scripts can't read it.
+SESSION_COOKIE = "mikeronn_session"
+
+# Declared as FastAPI security schemes so the API docs (/docs) and generated
+# clients know both ways of signing a request.
+bearer_token = HTTPBearer(
+    auto_error=False,
+    description="For the app: the token from signing in with client \"app\".",
+)
+session_cookie = APIKeyCookie(
+    name=SESSION_COOKIE,
+    auto_error=False,
+    description="For browsers: set by signing in with client \"web\".",
+)
 
 
 def reject_cross_site_writes(request: Request) -> None:
@@ -30,7 +44,8 @@ def reject_cross_site_writes(request: Request) -> None:
         allowed = fetch_site in ("same-origin", "none")
     else:
         origin = request.headers.get("origin")
-        # Neither header means a non-browser client such as curl, which CSRF cannot use.
+        # Neither header means a non-browser client such as curl or the iOS app,
+        # which CSRF cannot use: they send the token themselves.
         allowed = origin is None or urlsplit(origin).netloc == request.headers.get("host")
     if not allowed:
         raise HTTPException(
@@ -38,31 +53,87 @@ def reject_cross_site_writes(request: Request) -> None:
         )
 
 
-def require_login(
-    credentials: Annotated[HTTPBasicCredentials | None, Depends(basic_auth)],
-) -> None:
-    settings = get_settings()
-    if not settings.app_password:
-        return
-    if credentials is not None:
-        # compare_digest keeps the comparison constant-time.
-        user_ok = secrets.compare_digest(
-            credentials.username.encode(), settings.app_username.encode()
+def client_ip(request: Request) -> str:
+    # Behind a reverse proxy this is the proxy's address unless uvicorn trusts
+    # it to pass the visitor's on (FORWARDED_ALLOW_IPS).
+    return request.client.host if request.client else "unknown"
+
+
+def check_limit(limit: Limit, key: Hashable) -> None:
+    """Refuse with 429 if the key has had all the tries the limit allows."""
+    wait = limit.wait(key)
+    if wait:
+        minutes = max(1, round(wait / 60))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many tries. Please wait {minutes} minute"
+            f"{'' if minutes == 1 else 's'} and try again.",
+            headers={"Retry-After": str(wait)},
         )
-        password_ok = secrets.compare_digest(
-            credentials.password.encode(), settings.app_password.encode()
-        )
-        if user_ok and password_ok:
-            return
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Login required",
-        headers={"WWW-Authenticate": "Basic"},
+
+
+def set_session_cookie(request: Request, response: Response, token: str, expires: datetime) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        expires=expires,
+        path="/",
+        httponly=True,
+        # Sent when following a link to the app, not with other sites' requests.
+        samesite="lax",
+        # Over HTTPS the cookie is never sent unencrypted. Plain HTTP on this
+        # computer (localhost) has nothing to encrypt with.
+        secure=request.url.scheme == "https",
     )
 
 
-def get_trade_or_404(trade_id: int, db: DbSession) -> Trade:
-    trade = crud.get_trade(db, trade_id)
+def clear_session_cookie(request: Request, response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+
+
+def get_current_session(
+    request: Request,
+    response: Response,
+    db: DbSession,
+    bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_token)],
+    cookie: Annotated[str | None, Depends(session_cookie)],
+) -> UserSession:
+    """The signed-in session making this request, or a 401."""
+    token = bearer.credentials if bearer is not None else cookie
+    session = accounts.find_session(db, token) if token else None
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign in to continue.",
+            # Bearer rather than Basic, so browsers don't pop up their own login box.
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # Each day of use keeps the device signed in for another SESSION_DAYS.
+    if accounts.keep_session(db, session) and session.client == WEB:
+        set_session_cookie(request, response, token, session.expires_at)
+    return session
+
+
+CurrentSession = Annotated[UserSession, Depends(get_current_session)]
+
+
+def get_current_user(session: CurrentSession) -> User:
+    return session.user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_trade_or_404(trade_id: int, user: CurrentUser, db: DbSession) -> Trade:
+    # Someone else's trade is "not found" rather than "forbidden", which would
+    # confirm that a trade with that number exists.
+    trade = crud.get_trade(db, user, trade_id)
     if trade is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trade not found")
     return trade

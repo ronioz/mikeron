@@ -2,38 +2,14 @@ import { type FormEvent, type InputHTMLAttributes, type ReactNode, useState } fr
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "../api";
+import { BROKER_IDS, BROKERS } from "../brokers";
 import { formatMoney, formatShares, trimZeros } from "../format";
-import type { Decimal, Position, Side, Trade, TradeInput } from "../types";
+import type { Broker, Decimal, Position, Side, Trade, TradeInput } from "../types";
+import { BrokerBadge } from "./BrokerBadge";
+import { Field } from "./Field";
 
 /** Every field typed into: all but the Paid with switch. */
 type TextField = Exclude<keyof TradeInput, "paid_from_cash">;
-
-interface FieldProps {
-  name: keyof TradeInput;
-  label: string;
-  optional?: boolean;
-  hint?: ReactNode;
-  error: string | undefined;
-  children: ReactNode;
-}
-
-function Field({ name, label, optional, hint, error, children }: FieldProps) {
-  return (
-    <div className="field">
-      <label htmlFor={name}>
-        {label}
-        {optional && <small> optional</small>}
-      </label>
-      {children}
-      {hint && <p className="hint">{hint}</p>}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // A text field with a numeric keypad rather than type="number": no spinner, no
 // value changing when the page is scrolled over it, and the number is shown
@@ -77,6 +53,9 @@ const FUNDING: { fromCash: boolean; label: string }[] = [
   { fromCash: false, label: "New money" },
   { fromCash: true, label: "Cash from sales" },
 ];
+
+// The brokers, then "Other" for one not listed (stored as no broker).
+const BROKER_CHOICES: (Broker | "")[] = [...BROKER_IDS, ""];
 
 interface Props {
   heading: string;
@@ -209,6 +188,32 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, cash
             <input {...bind("trade_date")} type="date" required />
           </Field>
         </div>
+
+        <fieldset className="field choice-field">
+          <legend>
+            Broker <small>optional</small>
+          </legend>
+          <div className="segmented broker-choice">
+            {BROKER_CHOICES.map((broker) => (
+              <label key={broker || "other"}>
+                <input
+                  type="radio"
+                  name="broker"
+                  value={broker}
+                  checked={values.broker === broker}
+                  onChange={() => set("broker", broker)}
+                  aria-label={broker ? BROKERS[broker].name : "Other broker"}
+                />
+                <span>{broker ? <BrokerBadge broker={broker} /> : "Other"}</span>
+              </label>
+            ))}
+          </div>
+          {errors.broker && (
+            <p className="error" role="alert">
+              {errors.broker}
+            </p>
+          )}
+        </fieldset>
 
         <div className="field-row">
           <Field name="price" label={selling ? "Sell price ($)" : "Buy price ($)"} error={errors.price}>

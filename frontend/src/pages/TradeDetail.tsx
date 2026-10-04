@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api";
 import { isMoney, reinvested } from "../cash";
+import { BrokerBadge } from "../components/BrokerBadge";
 import { Change, Delta, Hero, Stat } from "../components/figures";
 import { Loadable } from "../components/Loadable";
 import { confirmAndDelete } from "../deleteTrade";
@@ -45,6 +46,7 @@ function Report({ trade }: { trade: Trade }) {
           {trade.ticker}{" "}
           <span className="title-meta">
             <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
+            <BrokerBadge broker={trade.broker} />{" "}
             <span>{formatDate(trade.trade_date)}</span>
           </span>
         </h1>

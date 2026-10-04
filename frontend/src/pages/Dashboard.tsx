@@ -12,6 +12,7 @@ import {
   Stat,
   ValueHero,
 } from "../components/figures";
+import { BrokerBadge } from "../components/BrokerBadge";
 import { Loadable } from "../components/Loadable";
 import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
@@ -273,7 +274,8 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) 
           {trade.ticker}
         </Link>
         <span className="second-line">
-          <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>
+          <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
+          <BrokerBadge broker={trade.broker} />
         </span>
       </td>
       <td className="number">

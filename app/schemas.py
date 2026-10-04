@@ -3,8 +3,11 @@ from decimal import Decimal
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
+    EmailStr,
     Field,
     PlainSerializer,
     ValidationInfo,
@@ -34,6 +37,10 @@ Ratio = Annotated[
 Percent = Ratio
 PerShare = Ratio
 
+# The brokers a trade can name: TBC Bank and Bank of Georgia. Add one here,
+# and to BROKERS in frontend/src/brokers.ts; the database needs no change.
+Broker = Literal["tbc", "bog"]
+
 
 class TradeIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -52,13 +59,15 @@ class TradeIn(BaseModel):
     paid_from_cash: bool = False
     # The broker's commission. Declared after price and shares, which checking it needs.
     fee: Fee = Decimal(0)
+    # Which broker the trade was placed with. Purchases and sales both have one.
+    broker: Broker | None = None
 
     @field_validator("ticker")
     @classmethod
     def uppercase_ticker(cls, value: str) -> str:
         return value.upper()
 
-    @field_validator("take_profit", "stop_loss", mode="before")
+    @field_validator("take_profit", "stop_loss", "broker", mode="before")
     @classmethod
     def blank_is_none(cls, value: object) -> object:
         # Forms submit empty inputs as "" rather than omitting them.
@@ -214,3 +223,100 @@ class Summary(Totals):
     this_month_from_cash: Decimal
     monthly_budget: Decimal
     years: list[YearTotal]
+
+
+# Accounts.
+
+PASSWORD_MIN = 8
+PASSWORD_MAX = 128
+
+
+def _strip(value: object) -> object:
+    return value.strip() if isinstance(value, str) else value
+
+
+def _no_spaces(value: object) -> object:
+    # A code may be pasted as "123 456".
+    return "".join(value.split()) if isinstance(value, str) else value
+
+
+# Lowercased whole, so You@Example.com and you@example.com are one account.
+Email = Annotated[EmailStr, BeforeValidator(_strip), AfterValidator(str.lower)]
+# Spaces are allowed and kept: they can be part of a password.
+NewPassword = Annotated[str, Field(min_length=PASSWORD_MIN, max_length=PASSWORD_MAX)]
+# Checking a password doesn't repeat the rules for new ones.
+GivenPassword = Annotated[str, Field(min_length=1, max_length=PASSWORD_MAX)]
+Code = Annotated[str, BeforeValidator(_no_spaces), Field(pattern=r"^[0-9]{6}$")]
+# "web" signs a browser in with a cookie. "app" returns the token instead, for
+# the iOS app to keep in the Keychain and send as "Authorization: Bearer".
+Client = Literal["web", "app"]
+
+
+class SignUpIn(BaseModel):
+    email: Email
+    password: NewPassword
+
+
+class SignInIn(BaseModel):
+    email: Email
+    password: GivenPassword
+    client: Client = "web"
+
+
+class EmailIn(BaseModel):
+    email: Email
+
+
+class ConfirmIn(BaseModel):
+    email: Email
+    code: Code
+    client: Client = "web"
+
+
+class ResetPasswordIn(BaseModel):
+    email: Email
+    code: Code
+    new_password: NewPassword
+    client: Client = "web"
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: GivenPassword
+    new_password: NewPassword
+
+
+class PasswordIn(BaseModel):
+    password: GivenPassword
+
+
+class AccountUpdate(BaseModel):
+    monthly_budget: Annotated[Decimal, Field(ge=0, max_digits=18, decimal_places=4)]
+
+
+class Account(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    monthly_budget: Decimal
+    created_at: datetime
+    # The broker of the trade recorded most recently, for a new trade to start
+    # with. Only filled in by GET /api/me.
+    last_broker: Broker | None = None
+
+
+class SignedIn(BaseModel):
+    account: Account
+    # Only for client "app": the token to send as "Authorization: Bearer <token>",
+    # and when it stops working unless used. A browser gets it as a cookie instead.
+    token: str | None = None
+    expires_at: datetime | None = None
+
+
+class CodeSent(BaseModel):
+    """The same answer whether or not the address has an account."""
+
+    email: str
+
+
+class AuthOptions(BaseModel):
+    sign_up_open: bool

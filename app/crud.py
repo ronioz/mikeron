@@ -2,29 +2,49 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ledger import OversoldError, build_ledger
-from app.models import Trade
+from app.models import Trade, User
 from app.schemas import TradeIn
 
 
-def list_trades(db: Session) -> list[Trade]:
-    """Every trade, newest first."""
-    return list(db.scalars(select(Trade).order_by(Trade.trade_date.desc(), Trade.id.desc())))
+def list_trades(db: Session, user: User) -> list[Trade]:
+    """Every trade in the user's journal, newest first."""
+    return list(
+        db.scalars(
+            select(Trade)
+            .where(Trade.user_id == user.id)
+            .order_by(Trade.trade_date.desc(), Trade.id.desc())
+        )
+    )
 
 
-def get_trade(db: Session, trade_id: int) -> Trade | None:
-    return db.get(Trade, trade_id)
+def get_trade(db: Session, user: User, trade_id: int) -> Trade | None:
+    """One of the user's trades. Someone else's counts as missing."""
+    return db.scalar(select(Trade).where(Trade.id == trade_id, Trade.user_id == user.id))
 
 
-def _commit(db: Session, tickers: set[str], saved: Trade | None = None) -> None:
+def last_broker(db: Session, user: User) -> str | None:
+    """The broker of the trade the user recorded most recently, among those with one."""
+    return db.scalar(
+        select(Trade.broker)
+        .where(Trade.user_id == user.id, Trade.broker.is_not(None))
+        .order_by(Trade.id.desc())
+        .limit(1)
+    )
+
+
+def _commit(db: Session, user_id: int, tickers: set[str], saved: Trade | None = None) -> None:
     """Commit the pending change, unless it leaves a sale without enough shares.
 
     Any edit can do that: selling too much, moving a sale before its purchase,
     or shrinking or deleting a purchase that a later sale relies on. In that
-    case the change is undone and OversoldError is raised.
+    case the change is undone and OversoldError is raised. Only the user's own
+    trades count: one person's shares never cover another's sale.
     """
     db.flush()
     try:
-        build_ledger(db.scalars(select(Trade).where(Trade.ticker.in_(tickers))))
+        build_ledger(
+            db.scalars(select(Trade).where(Trade.user_id == user_id, Trade.ticker.in_(tickers)))
+        )
     except OversoldError as problem:
         problem.direct = saved is not None and problem.sale_id == saved.id
         db.rollback()
@@ -32,10 +52,11 @@ def _commit(db: Session, tickers: set[str], saved: Trade | None = None) -> None:
     db.commit()
 
 
-def create_trade(db: Session, data: TradeIn) -> Trade:
-    trade = Trade(**data.model_dump())
+def create_trade(db: Session, user: User, data: TradeIn) -> Trade:
+    # The owner comes from the session, never from the request body.
+    trade = Trade(**data.model_dump(), user_id=user.id)
     db.add(trade)
-    _commit(db, {trade.ticker}, saved=trade)
+    _commit(db, user.id, {trade.ticker}, saved=trade)
     db.refresh(trade)
     return trade
 
@@ -45,12 +66,12 @@ def update_trade(db: Session, trade: Trade, data: TradeIn) -> Trade:
     tickers = {trade.ticker, data.ticker}
     for field, value in data.model_dump().items():
         setattr(trade, field, value)
-    _commit(db, tickers, saved=trade)
+    _commit(db, trade.user_id, tickers, saved=trade)
     db.refresh(trade)
     return trade
 
 
 def delete_trade(db: Session, trade: Trade) -> None:
-    ticker = trade.ticker
+    user_id, ticker = trade.user_id, trade.ticker
     db.delete(trade)
-    _commit(db, {ticker})
+    _commit(db, user_id, {ticker})

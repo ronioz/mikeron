@@ -5,6 +5,9 @@ export type Decimal = string;
 
 export type Side = "buy" | "sell";
 
+/** The broker a trade was placed with: TBC Bank or Bank of Georgia. See brokers.ts. */
+export type Broker = "tbc" | "bog";
+
 /** What the trade form submits. Optional prices are sent as "" when left empty. */
 export interface TradeInput {
   side: Side;
@@ -23,6 +26,8 @@ export interface TradeInput {
   paid_from_cash: boolean;
   /** The broker's commission in dollars; "" when there was none. */
   fee: string;
+  /** Where the trade was placed; "" when not recorded. */
+  broker: Broker | "";
 }
 
 export interface Trade {
@@ -64,6 +69,8 @@ export interface Trade {
    * was new money. Less than the cost when there wasn't that much cash.
    */
   cash_used: Decimal | null;
+  /** Where the trade was placed. A label only: shares and cash are counted across brokers. */
+  broker: Broker | null;
 }
 
 export interface Totals {
@@ -130,4 +137,30 @@ export interface Summary extends Totals {
   this_month_from_cash: Decimal;
   monthly_budget: Decimal;
   years: YearTotal[];
+}
+
+/** The signed-in person's account. */
+export interface Account {
+  email: string;
+  /** What they plan to put in each month. */
+  monthly_budget: Decimal;
+  created_at: string;
+  /** The broker of their most recently recorded trade; only from GET /api/me. */
+  last_broker: Broker | null;
+}
+
+export interface SignedIn {
+  account: Account;
+  /** Only for the iOS app; a browser is signed in with a cookie instead. */
+  token: string | null;
+  expires_at: string | null;
+}
+
+/** The same answer whether or not the address has an account. */
+export interface CodeSent {
+  email: string;
+}
+
+export interface AuthOptions {
+  sign_up_open: boolean;
 }

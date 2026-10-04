@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { isMoney, reinvested } from "../cash";
 import { formatMoney, formatShares, formatShortDate, formatSignedMoney } from "../format";
 import type { Trade } from "../types";
+import { BrokerBadge } from "./BrokerBadge";
 import { Change } from "./figures";
 
 interface Props {
@@ -25,7 +26,8 @@ export function TradeItem({ trade, onDelete }: Props) {
         <span className="item-main">
           <span className="item-title">
             <span className="ticker">{trade.ticker}</span>{" "}
-            <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>
+            <span className={`side-tag ${trade.side}`}>{sale ? "Sell" : "Buy"}</span>{" "}
+            <BrokerBadge broker={trade.broker} />
           </span>
           {/* The year is in the heading over the list. */}
           <small>

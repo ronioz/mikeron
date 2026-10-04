@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.db import DbSession
-from app.deps import CurrentTrade
+from app.deps import CurrentTrade, CurrentUser
 from app.ledger import OversoldError
-from app.models import Trade
+from app.models import Trade, User
 from app.portfolio import value_trades
 from app.prices import QuoteCache, Quotes
 from app.schemas import TradeIn, TradeOut
@@ -15,11 +15,11 @@ from app.schemas import TradeIn, TradeOut
 router = APIRouter(prefix="/trades", tags=["trades"])
 
 
-def _valued(trade: Trade, db: Session, quotes: QuoteCache) -> TradeOut:
+def _valued(trade: Trade, user: User, db: Session, quotes: QuoteCache) -> TradeOut:
     # What happened to a purchase depends on the later sales of its ticker, and
     # the cash it could use on every earlier sale, so the whole journal counts.
     # Only this trade's price is needed, though.
-    every = crud.list_trades(db)
+    every = crud.list_trades(db, user)
     valued = value_trades(every, quotes.get(db, [trade.ticker]))
     return next(out for out in valued if out.id == trade.id)
 
@@ -53,32 +53,34 @@ def _not_enough_shares(problem: OversoldError) -> HTTPException:
 
 
 @router.get("")
-def list_trades(db: DbSession, quotes: Quotes) -> list[TradeOut]:
-    trades = crud.list_trades(db)
+def list_trades(user: CurrentUser, db: DbSession, quotes: Quotes) -> list[TradeOut]:
+    trades = crud.list_trades(db, user)
     return value_trades(trades, quotes.get(db, {trade.ticker for trade in trades}))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_trade(data: TradeIn, db: DbSession, quotes: Quotes) -> TradeOut:
+def create_trade(data: TradeIn, user: CurrentUser, db: DbSession, quotes: Quotes) -> TradeOut:
     try:
-        trade = crud.create_trade(db, data)
+        trade = crud.create_trade(db, user, data)
     except OversoldError as problem:
         raise _not_enough_shares(problem) from problem
-    return _valued(trade, db, quotes)
+    return _valued(trade, user, db, quotes)
 
 
 @router.get("/{trade_id}")
-def get_trade(trade: CurrentTrade, db: DbSession, quotes: Quotes) -> TradeOut:
-    return _valued(trade, db, quotes)
+def get_trade(trade: CurrentTrade, user: CurrentUser, db: DbSession, quotes: Quotes) -> TradeOut:
+    return _valued(trade, user, db, quotes)
 
 
 @router.put("/{trade_id}")
-def update_trade(trade: CurrentTrade, data: TradeIn, db: DbSession, quotes: Quotes) -> TradeOut:
+def update_trade(
+    trade: CurrentTrade, data: TradeIn, user: CurrentUser, db: DbSession, quotes: Quotes
+) -> TradeOut:
     try:
         trade = crud.update_trade(db, trade, data)
     except OversoldError as problem:
         raise _not_enough_shares(problem) from problem
-    return _valued(trade, db, quotes)
+    return _valued(trade, user, db, quotes)
 
 
 @router.delete("/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)

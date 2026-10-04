@@ -6,17 +6,21 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.db import DbSession
-from app.deps import reject_cross_site_writes, require_login
-from app.routers import portfolio, trades
+from app.deps import get_current_user, reject_cross_site_writes
+from app.routers import account, auth, portfolio, trades
 
 # The built React app. Absent in development, where the Vite dev server serves it.
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 app = FastAPI(title="Mikeronn")
-protected = [Depends(reject_cross_site_writes), Depends(require_login)]
+# Signing in and out only needs the cross-site check; everything else also
+# needs someone signed in, and only ever shows them their own data.
+signed_in = [Depends(reject_cross_site_writes), Depends(get_current_user)]
 
-app.include_router(trades.router, prefix="/api", dependencies=protected)
-app.include_router(portfolio.router, prefix="/api", dependencies=protected)
+app.include_router(auth.router, prefix="/api", dependencies=[Depends(reject_cross_site_writes)])
+app.include_router(account.router, prefix="/api", dependencies=signed_in)
+app.include_router(trades.router, prefix="/api", dependencies=signed_in)
+app.include_router(portfolio.router, prefix="/api", dependencies=signed_in)
 
 
 @app.get("/healthz", include_in_schema=False)
@@ -28,7 +32,9 @@ def healthz(db: DbSession) -> dict[str, str]:
 if FRONTEND.is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND / "assets"), name="assets")
 
-    @app.get("/{path:path}", include_in_schema=False, dependencies=[Depends(require_login)])
+    # The pages themselves hold no data, so they load for anyone; the sign-in
+    # page is one of them, and the data behind every other page needs a session.
+    @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str) -> FileResponse:
         if path == "api" or path.startswith("api/"):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
