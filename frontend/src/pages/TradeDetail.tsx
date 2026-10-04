@@ -39,7 +39,7 @@ function Report({ trade }: { trade: Trade }) {
 
   return (
     <>
-      <title>{`${trade.ticker} ${sale ? "sale" : "purchase"} · Mikeron`}</title>
+      <title>{`${trade.ticker} ${sale ? "sale" : "purchase"} · Mikeronn`}</title>
       <div className="page-head">
         <h1>
           {trade.ticker}{" "}

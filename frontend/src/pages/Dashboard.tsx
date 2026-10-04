@@ -23,7 +23,7 @@ export function Dashboard() {
   const state = useApi(() => Promise.all([api.getSummary(), api.listTrades()]), [], REFRESH_MS);
   return (
     <>
-      <title>Mikeron</title>
+      <title>Mikeronn</title>
       {/* The tab in the header already says where this is; the heading is for screen readers. */}
       <h1 className="visually-hidden">Journal</h1>
       <Loadable state={state}>
@@ -123,22 +123,6 @@ function Journal({ summary, trades, reload }: JournalProps) {
       */}
       <section className="table-wrap journal-table">
         <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Ticker</th>
-              <th className="number">Shares</th>
-              <th className="number">Price</th>
-              <th className="number">Amount</th>
-              <th className="number">Value now</th>
-              <th className="number">Take profit</th>
-              <th className="number">Stop loss</th>
-              <th>Why</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
           {summary.years.map((total) => (
             <tbody key={total.year}>
               <tr className="year">
@@ -146,6 +130,7 @@ function Journal({ summary, trades, reload }: JournalProps) {
                   <span className="year-number">{total.year}</span> <YearSummary total={total} />
                 </th>
               </tr>
+              <ColumnNames />
               {(byYear.get(total.year) ?? []).map((trade) => (
                 <TradeRow key={trade.id} trade={trade} onDelete={remove} />
               ))}
@@ -183,6 +168,29 @@ function YearSummary({ total }: { total: YearTotal }) {
       {Number(sold) > 0 && ` · ${formatMoney(sold)} sold`}
       {isMoney(fees) && ` · ${formatMoney(fees)} in fees`}
     </small>
+  );
+}
+
+/**
+ * The column names, under each year's heading. A <thead> can't go there: a
+ * table has only one, and it is drawn above the first year's heading.
+ */
+function ColumnNames() {
+  return (
+    <tr className="column-names">
+      <th scope="col">Date</th>
+      <th scope="col">Ticker</th>
+      <th scope="col" className="number">Shares</th>
+      <th scope="col" className="number">Price</th>
+      <th scope="col" className="number">Amount</th>
+      <th scope="col" className="number">Value now</th>
+      <th scope="col" className="number">Take profit</th>
+      <th scope="col" className="number">Stop loss</th>
+      <th scope="col">Why</th>
+      <th scope="col">
+        <span className="visually-hidden">Actions</span>
+      </th>
+    </tr>
   );
 }
 

@@ -3,7 +3,7 @@ import { Link } from "react-router";
 export function NotFound() {
   return (
     <section className="empty">
-      <title>Page not found · Mikeron</title>
+      <title>Page not found · Mikeronn</title>
       <p>That page doesn't exist.</p>
       <Link className="button" to="/">
         Back to the journal

@@ -23,7 +23,7 @@ export function PortfolioPage() {
   const state = useApi(api.getPortfolio, [], REFRESH_MS);
   return (
     <>
-      <title>Portfolio · Mikeron</title>
+      <title>Portfolio · Mikeronn</title>
       {/* The tab in the header already says where this is; the heading is for screen readers. */}
       <h1 className="visually-hidden">Portfolio</h1>
       <Loadable state={state}>

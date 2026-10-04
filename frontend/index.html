@@ -8,8 +8,8 @@
     <meta name="theme-color" content="#0e0e0e" />
     <script>
       // Pick the theme before anything draws, so the page never flashes the
-      // wrong one: the one chosen with the header switch, else the device's.
-      // Same rule as src/theme.ts.
+      // wrong one: the one chosen in the header menu, else the device's
+      // (nothing is stored for Match device). Same rule as src/theme.ts.
       (function () {
         var chosen = null;
         try {
@@ -19,7 +19,7 @@
         document.documentElement.dataset.theme = dark ? "dark" : "light";
       })();
     </script>
-    <title>Mikeron</title>
+    <title>Mikeronn</title>
   </head>
   <body>
     <div id="root"></div>

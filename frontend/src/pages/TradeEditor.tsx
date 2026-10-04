@@ -45,7 +45,7 @@ export function TradeNew() {
   };
   return (
     <>
-      <title>Add trade · Mikeron</title>
+      <title>Add trade · Mikeronn</title>
       <TradeForm
         // Start over when the link changes, e.g. "Add trade" clicked while selling.
         key={params.toString()}
@@ -71,7 +71,7 @@ export function TradeEdit() {
         const what = trade.side === "sell" ? "sale" : "purchase";
         return (
           <>
-            <title>{`Edit ${trade.ticker} ${what} · Mikeron`}</title>
+            <title>{`Edit ${trade.ticker} ${what} · Mikeronn`}</title>
             <TradeForm
               heading={`Edit ${trade.ticker} ${what}`}
               initial={toInput(trade)}

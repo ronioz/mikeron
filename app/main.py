@@ -12,7 +12,7 @@ from app.routers import portfolio, trades
 # The built React app. Absent in development, where the Vite dev server serves it.
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
-app = FastAPI(title="Mikeron")
+app = FastAPI(title="Mikeronn")
 protected = [Depends(reject_cross_site_writes), Depends(require_login)]
 
 app.include_router(trades.router, prefix="/api", dependencies=protected)

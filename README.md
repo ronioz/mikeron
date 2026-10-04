@@ -1,4 +1,4 @@
-# Mikeron
+# Mikeronn
 
 A personal trade journal. For every buy you record the ticker, price, number of
 shares, date, why you bought, what you expect to happen, and the prices at which
