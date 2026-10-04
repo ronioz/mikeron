@@ -371,3 +371,35 @@ Postgres. Before putting it on the public internet:
   their address.
 - Opening sign-up to the public also needs a privacy policy, and a live-price
   plan that allows it: Finnhub's free plan is for personal, non-commercial use.
+
+### A free test deploy on Render and Neon
+
+`render.yaml` describes the app for [Render](https://render.com), whose free plan
+builds and runs it from this repository with no card. The database goes on
+[Neon](https://neon.com)'s free plan, since Render's free Postgres is deleted
+after 30 days.
+
+1. On Neon, create a project in AWS Europe Central 1 (Frankfurt, next to the app)
+   with Postgres 17, as in `docker-compose.yml`. Under Connect, turn off
+   connection pooling and copy the connection string.
+2. On Render, sign in with GitHub, choose New → Blueprint and pick this
+   repository. Paste the connection string as `DATABASE_URL` and your Finnhub key
+   as `FINNHUB_API_KEY`, then deploy.
+3. When it's live, open the `onrender.com` address Render shows and create an
+   account. The code is in the service's Logs tab.
+
+Every push to `main` deploys again, and the new version applies any migrations
+as it starts. Things to know:
+
+- It starts with an empty database. The journal on your computer stays there;
+  moving it is a dump and restore (see [Backups](#backups)).
+- The app sleeps after 15 minutes without visits, and the next visit takes about
+  a minute to wake it. Neon's database sleeps after 5 minutes and wakes in under
+  a second.
+- Render's free plan blocks the usual mail ports (25, 465 and 587). Resend also
+  listens on 2587: set `MAIL_BACKEND=smtp`, `SMTP_PORT=2587` and the rest of
+  [Email](#email) in the service's Environment tab.
+- `FORWARDED_ALLOW_IPS=*` makes the app believe the visitor's address and HTTPS
+  that Render's proxy reports. With `*`, the address is the first one in
+  `X-Forwarded-For`, so before opening sign-up to the public, check that Render
+  replaces any address a visitor puts there, or the sign-in limits can be dodged.

@@ -1,0 +1,24 @@
+# Render Blueprint: a free test deploy of the app (see "Hosting" in the README).
+# The database is on Neon, since Render's free Postgres is deleted after 30 days.
+services:
+  - type: web
+    name: mikeronn
+    runtime: docker
+    plan: free
+    region: frankfurt
+    # Checked before a new version takes over; it also checks the database.
+    healthCheckPath: /healthz
+    envVars:
+      # Asked for when the Blueprint is first applied: Neon's connection string
+      # and the Finnhub key from your .env.
+      - key: DATABASE_URL
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      # Render's proxy is the only way in. It says who the visitor is and that
+      # they came over HTTPS, which the app only believes with this set.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      # Render's free plan blocks the usual mail ports, so codes go to the log.
+      - key: MAIL_BACKEND
+        value: log
