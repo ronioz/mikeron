@@ -3,8 +3,9 @@ import { useLocation, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import { Loadable } from "../components/Loadable";
 import { TradeForm } from "../components/TradeForm";
+import { BROKER_IDS } from "../brokers";
 import { today, trimZeros } from "../format";
-import type { Trade, TradeInput } from "../types";
+import type { Broker, Trade, TradeInput } from "../types";
 import { useApi } from "../useApi";
 
 function toInput(trade: Trade): TradeInput {
@@ -25,9 +26,13 @@ function toInput(trade: Trade): TradeInput {
   };
 }
 
-/** /trades/new, or /trades/new?side=sell&ticker=AAPL to start a sale of a holding. */
+/**
+ * /trades/new, or /trades/new?side=sell&ticker=AAPL to start a sale of a
+ * holding, with &broker=tbc when it is one broker's.
+ */
 export function TradeNew() {
   const [params] = useSearchParams();
+  const asked = BROKER_IDS.find((broker: Broker) => broker === params.get("broker"));
   // Only used to help fill in the form (what is held, how much cash there is),
   // so the form doesn't wait for it.
   const portfolio = useApi(api.getPortfolio, []);
@@ -55,10 +60,11 @@ export function TradeNew() {
               stop_loss: "",
               paid_from_cash: false,
               fee: "",
-              broker: last_broker ?? "",
+              broker: asked ?? last_broker ?? "",
             }}
             cancelTo="/"
             holdings={portfolio.data?.positions}
+            parts={portfolio.data?.by_broker}
             cash={portfolio.data?.cash}
             save={api.createTrade}
           />

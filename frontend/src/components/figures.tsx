@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { formatMoney, formatPercent, formatSignedMoney, formatSignedPercent, formatTime } from "../format";
-import type { Decimal, Totals } from "../types";
+import type { Decimal, ShareTotals, Totals } from "../types";
 
 /** One figure with its label, in the row under a page's headline figure. */
 export function Stat({ label, children }: { label: string; children: ReactNode }) {
@@ -53,7 +53,7 @@ export function Delta({ amount, percent }: { amount: Decimal; percent: Decimal }
 }
 
 /** False once everything bought has been sold, or before anything was bought. */
-function holdsAnything(totals: Totals): boolean {
+function holdsAnything(totals: ShareTotals): boolean {
   return Number(totals.invested) > 0;
 }
 
@@ -99,7 +99,7 @@ export function MoneyInStat({ totals }: { totals: Totals }) {
 }
 
 /** Every fee paid so far, and what share of the money traded that is. */
-export function FeesStat({ totals }: { totals: Totals }) {
+export function FeesStat({ totals }: { totals: ShareTotals }) {
   return (
     <Stat label="Fees">
       <span className="value">{formatMoney(totals.fees)}</span>
@@ -121,7 +121,7 @@ export function CashStat({ totals }: { totals: Totals }) {
 }
 
 /** What all sales so far have gained or lost, compared with what the shares cost. */
-export function SalesStat({ totals }: { totals: Totals }) {
+export function SalesStat({ totals }: { totals: ShareTotals }) {
   const gain = totals.realized_gain;
   const count = totals.sale_count;
   return (
@@ -161,7 +161,7 @@ export function AsOf({ what, at }: { what: string; at: string }) {
 }
 
 /** Says how fresh the prices are and which holdings have none. */
-export function PriceNote({ totals }: { totals: Totals }) {
+export function PriceNote({ totals }: { totals: ShareTotals }) {
   // With nothing held there are no prices to talk about.
   if (!holdsAnything(totals)) return null;
   if (!totals.prices_enabled) {

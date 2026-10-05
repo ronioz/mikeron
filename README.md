@@ -57,8 +57,9 @@ remembers your choice in that browser.
   **Fees** figure on the Portfolio page adds them all up.
 - **Broker** says where the trade was placed: TBC Bank or Bank of Georgia,
   shown as a small tag in the bank's colour, or Other. A new trade starts with
-  the broker of the one you recorded last. It is a label only: shares, cash and
-  gains are counted across brokers together. To add a broker, add it to
+  the broker of the one you recorded last. A sale uses the shares bought at its
+  own broker first, and its form says how many that broker holds. Cash from
+  sales is counted across brokers together. To add a broker, add it to
   `Broker` in `app/schemas.py` and to `BROKERS` in `frontend/src/brokers.ts`,
   with a colour in `styles.css`; the database needs no change.
 
@@ -68,6 +69,15 @@ How the numbers work:
   bought 10 at $10 and then 5 at $20 uses all 10 of the first purchase and 2 of
   the second, so the sale's cost is $140. What it gained is the amount received
   minus that cost.
+- A broker can only sell what is held with it, so a sale uses the shares bought
+  at its own broker first, oldest first. Whether you hold enough is still asked
+  of all brokers together: if the sale's own broker runs short, the sale goes on
+  to the oldest shares elsewhere rather than being refused over a label.
+- **Portfolio** has a switch once any trade names a broker: **All** brokers
+  together, or one at a time (and **Other** for trades naming none). A broker's
+  part shows what is left of the shares bought there, what they cost and are
+  worth, and the sales and fees of the trades placed there, so the parts add up
+  to the whole. Cash and the money you put in are only shown under All.
 - A purchase that sales used up shows how many of its shares are left; once all
   are sold it shows "all sold".
 - Gains are after fees. A purchase's fee is part of what its shares cost, shared
@@ -253,8 +263,9 @@ uvx ruff check app migrations tests
 
 The tests cover accounts: signing up, in and out, codes, password resets, that
 no account can see or touch another's trades, deleting an account, plans and
-the period the journal counts against them, and the upgrades of a journal from
-before accounts and from before plans had a period. They make their own databases
+the period the journal counts against them, which shares a sale uses and the
+portfolio broker by broker, and the upgrades of a journal from before accounts
+and from before plans had a period. They make their own databases
 (`mikeronn_test` and `mikeronn_migration_test`) on the database server and drop
 them afterwards; they refuse to run against the real one. Prices come from a
 stand-in and emails go to a list in memory, so nothing is sent anywhere.
@@ -313,7 +324,7 @@ app/                   backend
     trades.py          /api/trades
     portfolio.py       /api/summary and /api/portfolio
 migrations/            Alembic migrations
-tests/                 pytest: accounts, plans, isolation between them, the upgrades
+tests/                 pytest: accounts, plans, brokers, isolation between them, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,

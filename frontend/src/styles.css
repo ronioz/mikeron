@@ -1116,6 +1116,17 @@ a.ticker:hover {
   padding-left: 8px;
 }
 
+/* On the portfolio: all brokers together, or one broker's part. As wide as a form's choice. */
+.portfolio-switch {
+  max-width: 420px;
+  margin-top: 12px;
+}
+
+/* Under a broker's figures: what isn't counted broker by broker. */
+.part-note {
+  margin-top: 16px;
+}
+
 /*
  * How often a plan puts money in: the more often, the greener. Weekly has the
  * whole green of money gained; monthly and quarterly are paler steps of it,

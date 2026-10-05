@@ -174,25 +174,15 @@ class Position(BaseModel):
     share_pct: Percent
 
 
-class Totals(BaseModel):
+class ShareTotals(BaseModel):
+    """What is held, sold and paid in fees: of the whole portfolio, or of one broker's part."""
+
     # What the shares still held cost to buy, fees included (their cost basis).
     # Grows when gains from sales are reinvested, without any new money.
     invested: Decimal
-    # The user's own money: every purchase with its fee, less what cash from
-    # sales paid for. Sales take nothing out; their money stays as cash.
-    money_in: Decimal
-    # Cash from sales not spent on purchases yet.
-    cash: Decimal
     # What the shares still held are worth. None when live prices are off or
     # nothing could be priced.
     current_value: Decimal | None = None
-    # What the shares still held are worth plus the cash: the headline figure.
-    # None when shares are held but can't be valued.
-    total_value: Decimal | None = None
-    # total_value against money_in: the gain on the shares still held plus every
-    # sale's gain. None when total_value is, or nothing was put in yet.
-    total_gain: Decimal | None = None
-    total_gain_pct: Percent | None = None
     gain: Decimal | None = None
     gain_pct: Percent | None = None
     # Gain made on every sale so far, after fees.
@@ -209,8 +199,38 @@ class Totals(BaseModel):
     prices_enabled: bool
 
 
+class Totals(ShareTotals):
+    # The user's own money: every purchase with its fee, less what cash from
+    # sales paid for. Sales take nothing out; their money stays as cash.
+    money_in: Decimal
+    # Cash from sales not spent on purchases yet.
+    cash: Decimal
+    # What the shares still held are worth plus the cash: the headline figure.
+    # None when shares are held but can't be valued.
+    total_value: Decimal | None = None
+    # total_value against money_in: the gain on the shares still held plus every
+    # sale's gain. None when total_value is, or nothing was put in yet.
+    total_gain: Decimal | None = None
+    total_gain_pct: Percent | None = None
+
+
+class BrokerPortfolio(ShareTotals):
+    """The part of the portfolio at one broker: the shares bought there that are
+    still held, and the sales and fees of the trades placed there.
+
+    Cash and the money put in aren't split: they are counted across brokers.
+    """
+
+    # None gathers the trades that name no broker.
+    broker: Broker | None
+    positions: list[Position]
+
+
 class Portfolio(Totals):
     positions: list[Position]
+    # One part for each broker with trades, in the order of Broker, then the
+    # trades naming none. Empty when no trade names a broker.
+    by_broker: list[BrokerPortfolio] = []
 
 
 class YearTotal(BaseModel):

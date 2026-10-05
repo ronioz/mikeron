@@ -1,14 +1,14 @@
 """Works out which purchased shares each sale used up.
 
-Shares of a ticker are sold oldest first (first in, first out). That decides
-how much of every purchase is still held and what each sale gained or lost.
+Shares of a ticker are sold oldest first (first in, first out), those bought
+at the sale's own broker before any others. That decides how much of every
+purchase is still held and what each sale gained or lost.
 Gains are after fees: shares carry their part of the fee paid to buy them, and
 a sale's own fee comes off what it brought in.
 Nothing here is stored: it is recomputed from the trades whenever it is needed,
 so editing or deleting a trade can never leave it out of date.
 """
 
-from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
@@ -81,6 +81,11 @@ class Ledger:
 def build_ledger(trades: Iterable[Trade]) -> Ledger:
     """Match each sale to the oldest shares still held of its ticker.
 
+    A broker can only sell what is held with it, so a sale first uses the
+    shares bought at its own broker. Whether there are enough shares is asked
+    of all brokers together: if the sale's own run short, the rest follow,
+    oldest first, rather than the sale being refused over a label.
+
     Raises OversoldError if a sale needs more shares than were held on its date.
     """
     by_ticker: dict[str, list[Trade]] = {}
@@ -92,7 +97,7 @@ def build_ledger(trades: Iterable[Trade]) -> Ledger:
         # Oldest first. On the same day purchases come before sales, so shares
         # bought and sold on one day are available to that sale.
         history.sort(key=lambda trade: (trade.trade_date, trade.side == SELL, trade.id))
-        held: deque[Lot] = deque()
+        held: list[Lot] = []
         for trade in history:
             if trade.side != SELL:
                 lot = Lot(trade=trade, remaining=trade.shares)
@@ -107,8 +112,10 @@ def build_ledger(trades: Iterable[Trade]) -> Ledger:
             sale = Sale(trade=trade)
             ledger.sales[trade.id] = sale
             needed = trade.shares
-            while needed > 0:
-                lot = held[0]
+            # Sorting keeps the order within each group, so both stay oldest first.
+            for lot in sorted(held, key=lambda lot: lot.trade.broker != trade.broker):
+                if needed == 0:
+                    break
                 used = min(lot.remaining, needed)
                 cost = lot.cost_of(used)
                 # What these shares brought in, after their part of the sale's fee.
@@ -117,6 +124,5 @@ def build_ledger(trades: Iterable[Trade]) -> Ledger:
                 lot.realized += proceeds - cost
                 sale.cost += cost
                 needed -= used
-                if lot.remaining == 0:
-                    held.popleft()
+            held = [lot for lot in held if lot.remaining > 0]
     return ledger

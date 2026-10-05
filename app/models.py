@@ -165,7 +165,8 @@ class Trade(Base):
     # what it cost; a sale's comes off what it brought in.
     fee: Mapped[Decimal] = mapped_column(Numeric(18, 4), server_default="0")
     # Which broker the trade was placed with, such as "bog", or empty if not
-    # recorded. A label only: shares and cash are counted across brokers
+    # recorded. A sale uses the shares bought at its own broker first, and the
+    # portfolio can be seen broker by broker; cash is counted across brokers
     # together. The API checks the name, so adding a broker needs no migration.
     broker: Mapped[str | None] = mapped_column(String(12))
     created_at: Mapped[datetime] = mapped_column(

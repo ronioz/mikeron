@@ -72,24 +72,16 @@ export interface Trade {
    * was new money. Less than the cost when there wasn't that much cash.
    */
   cash_used: Decimal | null;
-  /** Where the trade was placed. A label only: shares and cash are counted across brokers. */
+  /** Where the trade was placed. A sale uses the shares bought at its own broker first. */
   broker: Broker | null;
 }
 
-export interface Totals {
+/** What is held, sold and paid in fees: of the whole portfolio, or of one broker's part. */
+export interface ShareTotals {
   /** What the shares still held cost to buy, fees included. Grows when gains from sales are reinvested. */
   invested: Decimal;
-  /** The user's own money: every purchase with its fee, less what cash from sales paid for. */
-  money_in: Decimal;
-  /** Cash from sales not spent on purchases yet. */
-  cash: Decimal;
   /** What the shares still held are worth. Null when live prices are off or nothing could be priced. */
   current_value: Decimal | null;
-  /** The shares still held plus the cash: the headline. Null when the shares can't be valued. */
-  total_value: Decimal | null;
-  /** total_value against money_in: the gain still held plus every sale's. Null when total_value is. */
-  total_gain: Decimal | null;
-  total_gain_pct: Decimal | null;
   gain: Decimal | null;
   gain_pct: Decimal | null;
   /** Gain made on every sale so far, after fees. */
@@ -102,6 +94,18 @@ export interface Totals {
   unpriced: string[];
   price_at: string | null;
   prices_enabled: boolean;
+}
+
+export interface Totals extends ShareTotals {
+  /** The user's own money: every purchase with its fee, less what cash from sales paid for. */
+  money_in: Decimal;
+  /** Cash from sales not spent on purchases yet. */
+  cash: Decimal;
+  /** The shares still held plus the cash: the headline. Null when the shares can't be valued. */
+  total_value: Decimal | null;
+  /** total_value against money_in: the gain still held plus every sale's. Null when total_value is. */
+  total_gain: Decimal | null;
+  total_gain_pct: Decimal | null;
 }
 
 /** The shares of one ticker that are still held. */
@@ -119,9 +123,23 @@ export interface Position {
   share_pct: Decimal;
 }
 
+/**
+ * The part of the portfolio at one broker: what is left of the shares bought
+ * there, and the sales and fees of the trades placed there. Cash and the money
+ * put in aren't split: they are counted across brokers together.
+ */
+export interface BrokerPortfolio extends ShareTotals {
+  /** Null gathers the trades that name no broker. */
+  broker: Broker | null;
+  /** Largest holding first. */
+  positions: Position[];
+}
+
 export interface Portfolio extends Totals {
   /** Largest holding first. */
   positions: Position[];
+  /** One part per broker with trades, then the trades naming none. Empty when no trade names a broker. */
+  by_broker: BrokerPortfolio[];
 }
 
 export interface YearTotal {

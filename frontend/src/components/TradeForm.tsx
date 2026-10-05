@@ -4,7 +4,15 @@ import { Link, useNavigate } from "react-router";
 import { ApiError } from "../api";
 import { BROKER_IDS, BROKERS } from "../brokers";
 import { formatMoney, formatShares, trimZeros } from "../format";
-import type { Broker, Decimal, Position, Side, Trade, TradeInput } from "../types";
+import type {
+  Broker,
+  BrokerPortfolio,
+  Decimal,
+  Position,
+  Side,
+  Trade,
+  TradeInput,
+} from "../types";
 import { BrokerBadge } from "./BrokerBadge";
 import { Field } from "./Field";
 
@@ -66,12 +74,23 @@ interface Props {
   returnTo?: string;
   /** What is held now, to help fill in a sale. Leave out when editing a saved trade. */
   holdings?: Position[];
+  /** The same broker by broker, so a sale is filled in with what its own broker holds. */
+  parts?: BrokerPortfolio[];
   /** Cash from sales right now, to say how much a new purchase can use. Leave out when editing. */
   cash?: Decimal;
   save: (input: TradeInput) => Promise<Trade>;
 }
 
-export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, cash, save }: Props) {
+export function TradeForm({
+  heading,
+  initial,
+  cancelTo,
+  returnTo,
+  holdings,
+  parts,
+  cash,
+  save,
+}: Props) {
   const navigate = useNavigate();
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -112,15 +131,32 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, cash
   if (selling && holdings) {
     const ticker = values.ticker.trim().toUpperCase();
     const held = holdings.find((position) => position.ticker === ticker);
-    if (held) {
+    // Once trades name brokers, a sale is of what its own broker holds, not of everything.
+    const split = parts !== undefined && parts.length > 0;
+    const here = split
+      ? parts
+          .find((part) => (part.broker ?? "") === values.broker)
+          ?.positions.find((position) => position.ticker === ticker)
+      : held;
+    const where = !split
+      ? ""
+      : values.broker
+        ? ` at ${BROKERS[values.broker].name}`
+        : " with no broker recorded";
+    if (held && here) {
       sharesHint = (
         <>
-          You hold {formatShares(held.shares)} {held.ticker}.{" "}
-          <button className="link-button" type="button" onClick={() => set("shares", trimZeros(held.shares))}>
+          You hold {formatShares(here.shares)} {here.ticker}
+          {where}.{" "}
+          <button className="link-button" type="button" onClick={() => set("shares", trimZeros(here.shares))}>
             Sell all
           </button>
+          {Number(held.shares) !== Number(here.shares) &&
+            ` (${formatShares(held.shares)} across all brokers)`}
         </>
       );
+    } else if (held) {
+      sharesHint = `You hold no ${ticker}${where}: your ${formatShares(held.shares)} are with another broker.`;
     } else if (ticker) {
       sharesHint = `You don't hold any ${ticker} right now.`;
     }
