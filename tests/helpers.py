@@ -59,5 +59,16 @@ def trade(ticker: str, shares: str, price: str, date: str, side: str = "buy", **
     }
 
 
+# The plan a test's account signs up with, unless the test is about plans.
+PLAN = {"plan_amount": "30", "plan_period": "monthly"}
+
+
+def sign_up(client, email: str, password: str, **plan):
+    """Ask for an account as the sign-up form does: an address, a password and a plan."""
+    return client.post(
+        "/api/auth/sign-up", json={"email": email, "password": password, **PLAN, **plan}
+    )
+
+
 def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}

@@ -62,11 +62,14 @@ def test_an_owner_in_the_request_is_ignored(account):
     assert [t["ticker"] for t in ben.get("/api/trades").json()] == ["MU"]
 
 
-def test_the_monthly_plan_is_per_account(account):
+def test_the_plan_is_per_account(account):
     ana, ben = account(ANA), account(BEN)
-    assert ana.patch("/api/me", json={"monthly_budget": "50"}).status_code == 200
-    assert ana.get("/api/summary").json()["monthly_budget"] == "50.0000"
-    assert ben.get("/api/summary").json()["monthly_budget"] == "30.0000"
+    changed = {"plan_amount": "50", "plan_period": "quarterly"}
+    assert ana.patch("/api/me", json=changed).status_code == 200
+    mine, his = ana.get("/api/summary").json(), ben.get("/api/summary").json()
+    assert (mine["plan_amount"], mine["plan_period"]) == ("50.0000", "quarterly")
+    # Ben's is still the one he signed up with.
+    assert (his["plan_amount"], his["plan_period"]) == ("30.0000", "monthly")
 
 
 def test_nothing_is_shown_without_signing_in(account, new_client):

@@ -4,12 +4,12 @@ Everything here is plain arithmetic on its arguments: no database, no network.
 """
 
 from collections.abc import Mapping, Sequence
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from app.cash import CashBook, build_cash_book
 from app.ledger import Ledger, Lot, build_ledger
-from app.models import SELL, Quote, Trade
+from app.models import QUARTERLY, SELL, WEEKLY, Quote, Trade
 from app.schemas import Portfolio, Position, Summary, Totals, TradeOut, YearTotal
 
 ZERO = Decimal(0)
@@ -152,19 +152,40 @@ def build_portfolio(
     return Portfolio(positions=positions, **totals.model_dump())
 
 
+def period_bounds(period: str, today: date) -> tuple[date, date]:
+    """The first day of the plan period `today` is in, and the first day of the next.
+
+    Weeks run Monday to Sunday. Months and quarters are the calendar's.
+    """
+    if period == WEEKLY:
+        monday = today - timedelta(days=today.weekday())
+        return monday, monday + timedelta(days=7)
+    months = 3 if period == QUARTERLY else 1
+    # Months counted from year 0, so December to January is plain addition.
+    first = (today.year * 12 + today.month - 1) // months * months
+    return _first_of_month(first), _first_of_month(first + months)
+
+
+def _first_of_month(index: int) -> date:
+    return date(index // 12, index % 12 + 1, 1)
+
+
 def build_summary(
     trades: Sequence[Trade],
     quotes: Mapping[str, Quote],
     *,
     prices_enabled: bool,
-    monthly_budget: Decimal,
+    plan_amount: Decimal,
+    plan_period: str,
     today: date,
 ) -> Summary:
     cash = build_cash_book(trades)
     years: dict[int, YearTotal] = {}
-    # This month's purchases with their fees, split into new money and cash from sales reused.
-    this_month = ZERO
-    this_month_from_cash = ZERO
+    # The purchases of the plan's period going on now, with their fees, split
+    # into new money and cash from sales reused.
+    period_start, next_period = period_bounds(plan_period, today)
+    this_period = ZERO
+    this_period_from_cash = ZERO
     for trade in trades:
         traded = trade.trade_date
         year = years.setdefault(
@@ -177,19 +198,20 @@ def build_summary(
             year.sold += trade.amount
             continue
         year.bought += trade.amount
-        if (traded.year, traded.month) == (today.year, today.month):
+        if period_start <= traded < next_period:
             from_cash = cash.used[trade.id]
-            this_month += trade.net_amount - from_cash
-            this_month_from_cash += from_cash
+            this_period += trade.net_amount - from_cash
+            this_period_from_cash += from_cash
 
     ledger = build_ledger(trades)
     positions = build_positions(ledger, quotes)
     totals = _totals(trades, positions, ledger, cash, quotes, prices_enabled=prices_enabled)
     return Summary(
         trade_count=len(trades),
-        this_month=this_month,
-        this_month_from_cash=this_month_from_cash,
-        monthly_budget=monthly_budget,
+        plan_amount=plan_amount,
+        plan_period=plan_period,
+        this_period=this_period,
+        this_period_from_cash=this_period_from_cash,
         years=sorted(years.values(), key=lambda total: total.year, reverse=True),
         **totals.model_dump(),
     )

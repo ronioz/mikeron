@@ -66,30 +66,3 @@ export function followDevice(): () => void {
   query.addEventListener("change", listener);
   return () => query.removeEventListener("change", listener);
 }
-
-/**
- * Runs a change of theme with the new one spreading out in a circle from a
- * point on the screen. Instant where the browser can't animate it, or where
- * the device asks for less motion.
- */
-export function revealFrom(point: { x: number; y: number }, change: () => void) {
-  const lessMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (lessMotion || !("startViewTransition" in document)) {
-    change();
-    return;
-  }
-  const { x, y } = point;
-  // Big enough to reach the corner of the window furthest from the point.
-  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-  const transition = document.startViewTransition(change);
-  transition.ready
-    .then(() => {
-      document.documentElement.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 500, easing: "cubic-bezier(0.4, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)" },
-      );
-    })
-    .catch(() => {
-      // Skipped, e.g. the tab was hidden: the theme still changed, without the circle.
-    });
-}

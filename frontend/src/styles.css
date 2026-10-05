@@ -11,8 +11,9 @@
  * switch to its equal-width ones (tabular-nums) so they line up.
  *
  * Colour: black, white and greys, with green and red as the only colours,
- * kept for money (gains and losses, buys and sells, and the warnings about
- * them). The one exception is the broker tags, in each bank's own colour.
+ * kept for money (gains and losses, buys and sells, the warnings about them,
+ * and how often a plan puts money in: greener the more often). The one
+ * exception is the broker tags, in each bank's own colour.
  * The light theme is creamy white and black; the dark theme is a neutral
  * near-black, with no tint.
  *
@@ -304,16 +305,6 @@ main {
 
 .theme-options .check {
   margin-left: auto;
-}
-
-/*
- * When the theme changes (theme.ts), the new page grows over the old one in a
- * circle, in place of the browser's own cross-fade.
- */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1107,6 +1098,60 @@ a.ticker:hover {
 .segmented input:focus-visible + span {
   outline: 2px solid var(--text);
   outline-offset: 1px;
+}
+
+/* Options sharing the whole width, where three side by side would be too wide for a phone. */
+.segmented.even {
+  display: flex;
+  align-self: stretch;
+}
+
+.segmented.even label {
+  flex: 1;
+}
+
+.segmented.even label > span {
+  min-width: 0;
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
+/*
+ * How often a plan puts money in: the more often, the greener. Weekly has the
+ * whole green of money gained; monthly and quarterly are paler steps of it,
+ * mixed towards grey rather than faded, so each stays as easy to read. The
+ * steps set the name's colour, and once chosen, the fill, its edge and the name
+ * on it. Each name was checked for 4.5:1 on what it sits on, in both themes.
+ */
+.period-choice input[value="weekly"] + span {
+  --tint: 100%;
+  --fill: 30%;
+  --edge: 70%;
+  --ink: 50%;
+}
+
+.period-choice input[value="monthly"] + span {
+  --tint: 60%;
+  --fill: 17%;
+  --edge: 42%;
+  --ink: 35%;
+}
+
+.period-choice input[value="quarterly"] + span {
+  --tint: 25%;
+  --fill: 7%;
+  --edge: 20%;
+  --ink: 20%;
+}
+
+.period-choice input + span {
+  color: color-mix(in srgb, var(--gain) var(--tint), var(--muted));
+}
+
+.period-choice input:checked + span {
+  background: color-mix(in srgb, var(--gain) var(--fill), var(--raised));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gain) var(--edge), var(--line));
+  color: color-mix(in srgb, var(--gain) var(--ink), var(--text));
 }
 
 .field {

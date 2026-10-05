@@ -17,6 +17,7 @@ import { Loadable } from "../components/Loadable";
 import { TradeItem } from "../components/TradeItem";
 import { confirmAndDelete } from "../deleteTrade";
 import { formatDate, formatMoney, formatShares, formatShortDate, formatSignedMoney } from "../format";
+import { PERIODS } from "../plan";
 import type { Decimal, Summary, Trade, YearTotal } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
@@ -75,7 +76,7 @@ interface JournalProps {
 function Journal({ summary, trades, reload }: JournalProps) {
   const [problem, setProblem] = useState<string>();
   const byYear = groupByYear(trades);
-  const budget = Number(summary.monthly_budget);
+  const planned = Number(summary.plan_amount);
 
   async function remove(trade: Trade) {
     setProblem(undefined);
@@ -99,14 +100,17 @@ function Journal({ summary, trades, reload }: JournalProps) {
             <span className="sub">{formatMoney(summary.fees)} in fees</span>
           )}
         </Stat>
-        {/* New money only: buying with cash from sales doesn't spend the plan. */}
-        <Stat label="This month">
-          <span className="value">{formatMoney(summary.this_month)}</span>
-          <span className="sub">of {formatMoney(summary.monthly_budget)} planned</span>
-          {isMoney(summary.this_month_from_cash) && (
-            <span className="sub">plus {formatMoney(summary.this_month_from_cash)} reinvested</span>
+        {/*
+          The week, month or quarter going on now, whichever the plan runs by.
+          New money only: buying with cash from sales doesn't spend the plan.
+        */}
+        <Stat label={PERIODS[summary.plan_period].current}>
+          <span className="value">{formatMoney(summary.this_period)}</span>
+          <span className="sub">of {formatMoney(summary.plan_amount)} planned</span>
+          {isMoney(summary.this_period_from_cash) && (
+            <span className="sub">plus {formatMoney(summary.this_period_from_cash)} reinvested</span>
           )}
-          {budget > 0 && <progress value={Number(summary.this_month)} max={budget} />}
+          {planned > 0 && <progress value={Number(summary.this_period)} max={planned} />}
         </Stat>
       </section>
       <PriceNote totals={summary} />

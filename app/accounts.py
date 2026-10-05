@@ -5,6 +5,7 @@ and writes, and commits when a step is complete.
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -33,18 +34,21 @@ def find_user(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email))
 
 
-def save_sign_up(db: Session, email: str, password_hash: str) -> User:
-    """Create an unconfirmed account, or give an unconfirmed one this new password.
+def save_sign_up(
+    db: Session, email: str, password_hash: str, plan_amount: Decimal, plan_period: str
+) -> User:
+    """Create an unconfirmed account, or give an unconfirmed one this new password and plan.
 
     A sign-up that was never confirmed is only a request: whoever confirms the
     address with the emailed code becomes the account's owner.
     """
     user = find_user(db, email)
     if user is None:
-        user = User(email=email, password_hash=password_hash)
+        user = User(email=email)
         db.add(user)
-    else:
-        user.password_hash = password_hash
+    user.password_hash = password_hash
+    user.plan_amount = plan_amount
+    user.plan_period = plan_period
     db.commit()
     return user
 

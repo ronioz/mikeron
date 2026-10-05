@@ -127,7 +127,7 @@ export function TradeForm({ heading, initial, cancelTo, returnTo, holdings, cash
   }
 
   // For a purchase: what its money counts as, and how much cash from sales it can use.
-  let fundingHint = "Counts toward your monthly plan.";
+  let fundingHint = "Counts toward your plan.";
   if (values.paid_from_cash) {
     if (cash === undefined) {
       fundingHint =

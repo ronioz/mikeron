@@ -13,7 +13,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from helpers import PROJECT, drop, recreate, scratch_url
+from helpers import PROJECT, drop, recreate, scratch_url, sign_up
 
 TEST_DB = "mikeronn_test"
 
@@ -125,9 +125,9 @@ def account(new_client, outbox: Outbox):
     """Makes a confirmed account and returns a browser signed in to it."""
     from app import limits
 
-    def make(email: str = "ana@example.com", password: str = "ana-password-1"):
+    def make(email: str = "ana@example.com", password: str = "ana-password-1", **plan):
         client = new_client()
-        response = client.post("/api/auth/sign-up", json={"email": email, "password": password})
+        response = sign_up(client, email, password, **plan)
         assert response.status_code == 202, response.text
         code = outbox.code_for(email)
         response = client.post("/api/auth/confirm", json={"email": email, "code": code})

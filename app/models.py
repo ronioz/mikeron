@@ -29,6 +29,11 @@ APP = "app"
 CONFIRM = "confirm"
 RESET = "reset"
 
+# How often a plan's amount is meant to be put in.
+WEEKLY = "weekly"
+MONTHLY = "monthly"
+QUARTERLY = "quarterly"
+
 
 class User(Base):
     """Someone with an account. Their trades, sessions and codes go when they do."""
@@ -38,7 +43,10 @@ class User(Base):
         UniqueConstraint("email", name="uq_users_email"),
         # Stored lowercased, so one address can't sign up twice in different case.
         CheckConstraint("email = lower(email)", name="ck_users_email_lowercase"),
-        CheckConstraint("monthly_budget >= 0", name="ck_users_budget_not_negative"),
+        CheckConstraint("plan_amount >= 0", name="ck_users_plan_amount_not_negative"),
+        CheckConstraint(
+            "plan_period IN ('weekly', 'monthly', 'quarterly')", name="ck_users_plan_period"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -49,8 +57,11 @@ class User(Base):
     # When the address was confirmed with an emailed code. Until then the
     # account can't sign in.
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # What the user plans to put in each month, shown on the journal.
-    monthly_budget: Mapped[Decimal] = mapped_column(Numeric(18, 4), server_default="30")
+    # Their plan: how much new money they mean to put in, and how often. Both
+    # are asked for when signing up, with nothing assumed, and the journal
+    # compares each period's purchases with the amount.
+    plan_amount: Mapped[Decimal] = mapped_column(Numeric(18, 4))
+    plan_period: Mapped[str] = mapped_column(String(9))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

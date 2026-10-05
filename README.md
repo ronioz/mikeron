@@ -46,7 +46,7 @@ remembers your choice in that browser.
 - **Edit** and **Delete** are on every row of the journal and on each trade's
   page. Deleting asks first.
 - **Cash from sales.** The money from a sale goes into **Cash**. A purchase's
-  **Paid with** says whether it was new money (what you put in each month) or
+  **Paid with** says whether it was new money (what your plan is about) or
   **cash from sales** (reinvesting). Such a purchase uses the cash there is on
   its date; whatever the cash doesn't cover counts as new money. To record
   selling one stock to buy another, add the sale, then mark the purchases as
@@ -88,9 +88,11 @@ How the numbers work:
   the money from sales (after their fees) that no purchase has used yet. On the
   same day, sales come before purchases, so a purchase can reinvest that day's
   sale. A purchase paid from cash uses it for its fee too.
-- **This month** counts only new money against your monthly plan, fees
-  included. Purchases paid with cash from sales are shown beside it as
-  reinvested.
+- **This week**, **This month** or **This quarter**, whichever your plan runs
+  by, counts only new money against the plan's amount, fees included. Purchases
+  paid with cash from sales are shown beside it as reinvested. Weeks run Monday
+  to Sunday, months and quarters are the calendar's, and all three turn over
+  at midnight UTC.
 - A sale can't use more shares than you held on its date. The same check covers
   edits: the app refuses a change, such as deleting or shrinking a purchase, that
   would leave a later sale without enough shares, and says which sale is in the
@@ -103,16 +105,19 @@ Deleting a sale turns the purchases it paid for back into new money.
 
 ## Accounts
 
-- **Creating an account** takes an email address and a password of at least 8
-  characters. A 6-digit code is emailed to the address; typing it in confirms
-  the address and signs you in. An address that is never confirmed is forgotten
-  after a week, so it can sign up again.
+- **Creating an account** takes an email address, a password of at least 8
+  characters and your plan: how much new money you mean to invest, and whether
+  that is every week, month or quarter. Both parts of the plan have to be
+  filled in, and nothing is suggested for them. A 6-digit code is emailed to
+  the address; typing it in confirms the address and signs you in. An address
+  that is never confirmed is forgotten after a week, so it can sign up again.
 - **Signing in** keeps a browser signed in for 90 days after it was last used.
 - **Forgot your password?** on the sign-in page emails a code for choosing a new
   one. Choosing it signs out every other device.
-- **Account** in the header has your monthly plan (the amount the journal's
-  "This month" compares with), changing your password, signing out (this
-  device, or every other one) and deleting your account with every trade in it.
+- **Account** in the header has your plan (the amount and how often, which the
+  journal's "This month" or its weekly or quarterly twin compares with),
+  changing your password, signing out (this device, or every other one) and
+  deleting your account with every trade in it.
 
 Each account sees, sells from and changes only its own trades: one person's
 shares never cover another's sale, and someone else's trade is "not found".
@@ -247,8 +252,9 @@ uvx ruff check app migrations tests
 ```
 
 The tests cover accounts: signing up, in and out, codes, password resets, that
-no account can see or touch another's trades, deleting an account, and the
-upgrade of a journal from before accounts. They make their own databases
+no account can see or touch another's trades, deleting an account, plans and
+the period the journal counts against them, and the upgrades of a journal from
+before accounts and from before plans had a period. They make their own databases
 (`mikeronn_test` and `mikeronn_migration_test`) on the database server and drop
 them afterwards; they refuse to run against the real one. Prices come from a
 stand-in and emails go to a list in memory, so nothing is sent anywhere.
@@ -307,7 +313,7 @@ app/                   backend
     trades.py          /api/trades
     portfolio.py       /api/summary and /api/portfolio
 migrations/            Alembic migrations
-tests/                 pytest: accounts, isolation between them, the upgrade
+tests/                 pytest: accounts, plans, isolation between them, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -316,6 +322,7 @@ frontend/              React + TypeScript app
     api.ts             every call to the backend
     types.ts           shapes of the API responses
     brokers.ts         the brokers a trade can name
+    plan.ts            how often a plan's amount is put in: weekly, monthly, quarterly
     format.ts          money, percentages, dates
     cash.ts            how much of a purchase was paid with cash from sales
     deleteTrade.ts     asks before deleting a trade
@@ -323,8 +330,9 @@ frontend/              React + TypeScript app
     chart.ts           which slices the portfolio ring shows, and their colours
     useApi.ts          loading data, with periodic refresh
     components/        layouts, trade form, broker tags, the emailed-code step,
-                       ring chart, headline figure and stats, the journal's
-                       tap-to-open trade lines for phones and narrow windows
+                       the plan's two fields, ring chart, headline figure and
+                       stats, the journal's tap-to-open trade lines for phones
+                       and narrow windows
     pages/             journal, portfolio, trade report, add / edit, sign in,
                        create an account, reset a password, account
     styles.css         the look: colours and type for both themes, then layout

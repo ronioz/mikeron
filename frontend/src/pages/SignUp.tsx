@@ -5,6 +5,9 @@ import { useAccount } from "../account";
 import { ApiError, auth } from "../api";
 import { CodeStep } from "../components/CodeStep";
 import { Field } from "../components/Field";
+import { PlanFields } from "../components/PlanFields";
+import { typedAmount } from "../plan";
+import type { PlanPeriod } from "../types";
 import { useApi } from "../useApi";
 import { TAGLINE } from "./SignIn";
 
@@ -13,6 +16,9 @@ export function SignUp() {
   const options = useApi(auth.options, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Their plan. Both start empty: neither an amount nor how often is assumed for anyone.
+  const [planAmount, setPlanAmount] = useState("");
+  const [planPeriod, setPlanPeriod] = useState<PlanPeriod>();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -21,11 +27,17 @@ export function SignUp() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setProblem(undefined);
+    // Browsers ask for a choice before sending the form; this covers one that doesn't.
+    if (!planPeriod) {
+      setErrors({ plan_period: "Choose how often." });
+      return;
+    }
+    setBusy(true);
     setErrors({});
     try {
-      setSentTo((await auth.signUp(email, password)).email);
+      const sent = await auth.signUp(email, password, typedAmount(planAmount), planPeriod);
+      setSentTo(sent.email);
     } catch (reason) {
       if (!(reason instanceof ApiError)) throw reason;
       setErrors(reason.fields);
@@ -99,6 +111,16 @@ export function SignUp() {
             required
           />
         </Field>
+        <PlanFields
+          amount={planAmount}
+          period={planPeriod}
+          onAmount={setPlanAmount}
+          onPeriod={setPlanPeriod}
+          errors={errors}
+          amountLabel="Amount you plan to invest ($)"
+          amountHint="New money you mean to put in. The journal shows how much of it you have used."
+          periodHint="You can change both later, on the Account page."
+        />
         {problem && (
           <p className="error" role="alert">
             {problem}

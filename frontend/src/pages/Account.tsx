@@ -4,7 +4,9 @@ import { useAccount } from "../account";
 import { ApiError, api, auth } from "../api";
 import { Field } from "../components/Field";
 import { Loadable } from "../components/Loadable";
+import { PlanFields } from "../components/PlanFields";
 import { formatMoney, trimZeros } from "../format";
+import { PERIODS, typedAmount } from "../plan";
 import type { Account } from "../types";
 import { useApi } from "../useApi";
 
@@ -71,7 +73,7 @@ function Settings({ account }: { account: Account }) {
       <p className="lede">
         Signed in as <strong>{account.email}</strong>.
       </p>
-      <MonthlyPlan account={account} />
+      <Plan account={account} />
       <Password />
       <SignOut />
       <DeleteAccount />
@@ -79,8 +81,9 @@ function Settings({ account }: { account: Account }) {
   );
 }
 
-function MonthlyPlan({ account }: { account: Account }) {
-  const [amount, setAmount] = useState(trimZeros(account.monthly_budget));
+function Plan({ account }: { account: Account }) {
+  const [amount, setAmount] = useState(trimZeros(account.plan_amount));
+  const [period, setPeriod] = useState(account.plan_period);
   const [outcome, setOutcome] = useState(NOTHING_YET);
   const [busy, setBusy] = useState(false);
 
@@ -88,10 +91,11 @@ function MonthlyPlan({ account }: { account: Account }) {
     event.preventDefault();
     setBusy(true);
     try {
-      // Keypads in comma-decimal regions only offer a comma.
-      const saved = await api.setMonthlyBudget(amount.trim().replace(",", "."));
-      setAmount(trimZeros(saved.monthly_budget));
-      setOutcome({ errors: {}, done: `Saved: ${formatMoney(saved.monthly_budget)} a month.` });
+      const saved = await api.setPlan(typedAmount(amount), period);
+      setAmount(trimZeros(saved.plan_amount));
+      setPeriod(saved.plan_period);
+      const plan = `${formatMoney(saved.plan_amount)} ${PERIODS[saved.plan_period].each}`;
+      setOutcome({ errors: {}, done: `Saved: ${plan}.` });
     } catch (reason) {
       setOutcome(failed(reason));
     }
@@ -100,25 +104,18 @@ function MonthlyPlan({ account }: { account: Account }) {
 
   return (
     <Section
-      title="Monthly plan"
-      intro="How much new money you plan to put in each month. The journal shows how much of it this month's purchases used."
+      title="Plan"
+      intro="How much new money you plan to put in, and how often. The journal shows how much of it you have used so far this week, month or quarter."
     >
       <form className="setting-form" onSubmit={save}>
-        <Field name="monthly_budget" label="Amount ($)" error={outcome.errors.monthly_budget}>
-          <input
-            id="monthly_budget"
-            name="monthly_budget"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            aria-invalid={outcome.errors.monthly_budget ? true : undefined}
-            type="text"
-            inputMode="decimal"
-            pattern="\s*[0-9]*[.,]?[0-9]+\s*"
-            title="An amount such as 30"
-            autoComplete="off"
-            required
-          />
-        </Field>
+        <PlanFields
+          amount={amount}
+          period={period}
+          onAmount={setAmount}
+          onPeriod={setPeriod}
+          errors={outcome.errors}
+          amountLabel="Amount ($)"
+        />
         <Messages outcome={outcome} />
         <div className="actions">
           <button className="button secondary" type="submit" disabled={busy}>

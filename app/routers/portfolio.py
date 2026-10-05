@@ -20,8 +20,10 @@ def get_summary(user: CurrentUser, db: DbSession, quotes: Quotes) -> Summary:
         trades,
         latest,
         prices_enabled=quotes.enabled,
-        monthly_budget=user.monthly_budget,
-        # The server doesn't know the visitor's time zone, so the month rolls over in UTC.
+        plan_amount=user.plan_amount,
+        plan_period=user.plan_period,
+        # The server doesn't know the visitor's time zone, so the plan's week,
+        # month or quarter rolls over in UTC.
         today=datetime.now(UTC).date(),
     )
 

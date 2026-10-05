@@ -109,7 +109,9 @@ def sign_up(
         # Tell the address's owner, and only them, that they already have one.
         background.add_task(mailer.send, existing.email, *mail.already_registered_email())
         return CodeSent(email=data.email)
-    user = accounts.save_sign_up(db, data.email, password_hash)
+    user = accounts.save_sign_up(
+        db, data.email, password_hash, data.plan_amount, data.plan_period
+    )
     _send_code(db, background, mailer, user, CONFIRM)
     return CodeSent(email=data.email)
 

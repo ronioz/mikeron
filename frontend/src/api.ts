@@ -2,6 +2,7 @@ import type {
   Account,
   AuthOptions,
   CodeSent,
+  PlanPeriod,
   Portfolio,
   SignedIn,
   Summary,
@@ -85,8 +86,8 @@ export const api = {
   getPortfolio: () => request<Portfolio>("/portfolio"),
 
   getAccount: () => request<Account>("/me"),
-  setMonthlyBudget: (monthlyBudget: string) =>
-    request<Account>("/me", json("PATCH", { monthly_budget: monthlyBudget })),
+  setPlan: (amount: string, period: PlanPeriod) =>
+    request<Account>("/me", json("PATCH", { plan_amount: amount, plan_period: period })),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>(
       "/me/password",
@@ -99,8 +100,11 @@ export const api = {
 /** Signing up, in and out. Codes arrive by email; see app/routers/auth.py. */
 export const auth = {
   options: () => request<AuthOptions>("/auth/options"),
-  signUp: (email: string, password: string) =>
-    request<CodeSent>("/auth/sign-up", json("POST", { email, password })),
+  signUp: (email: string, password: string, planAmount: string, planPeriod: PlanPeriod) =>
+    request<CodeSent>(
+      "/auth/sign-up",
+      json("POST", { email, password, plan_amount: planAmount, plan_period: planPeriod }),
+    ),
   confirm: (email: string, code: string) =>
     request<SignedIn>("/auth/confirm", json("POST", { email, code })),
   resendCode: (email: string) => request<CodeSent>("/auth/resend-code", json("POST", { email })),

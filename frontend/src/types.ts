@@ -8,6 +8,9 @@ export type Side = "buy" | "sell";
 /** The broker a trade was placed with: TBC Bank or Bank of Georgia. See brokers.ts. */
 export type Broker = "tbc" | "bog";
 
+/** How often a plan's amount is put in. See plan.ts. */
+export type PlanPeriod = "weekly" | "monthly" | "quarterly";
+
 /** What the trade form submits. Optional prices are sent as "" when left empty. */
 export interface TradeInput {
   side: Side;
@@ -131,19 +134,22 @@ export interface YearTotal {
 
 export interface Summary extends Totals {
   trade_count: number;
-  /** New money put into purchases this month, to compare with the monthly budget. */
-  this_month: Decimal;
-  /** Purchases this month paid with cash from sales, which the budget leaves out. */
-  this_month_from_cash: Decimal;
-  monthly_budget: Decimal;
+  /** The plan: how much new money is meant to go in every week, month or quarter. */
+  plan_amount: Decimal;
+  plan_period: PlanPeriod;
+  /** New money put into purchases in the period going on now, to compare with the plan. */
+  this_period: Decimal;
+  /** That period's purchases paid with cash from sales, which the plan leaves out. */
+  this_period_from_cash: Decimal;
   years: YearTotal[];
 }
 
 /** The signed-in person's account. */
 export interface Account {
   email: string;
-  /** What they plan to put in each month. */
-  monthly_budget: Decimal;
+  /** Their plan, given when signing up: how much new money they mean to put in, and how often. */
+  plan_amount: Decimal;
+  plan_period: PlanPeriod;
   created_at: string;
   /** The broker of their most recently recorded trade; only from GET /api/me. */
   last_broker: Broker | null;

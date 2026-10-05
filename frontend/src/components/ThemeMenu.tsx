@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
-import { flushSync } from "react-dom";
 
 import {
   applyTheme,
@@ -7,8 +6,6 @@ import {
   currentPreference,
   currentTheme,
   followDevice,
-  revealFrom,
-  themeFor,
   type Preference,
 } from "../theme";
 
@@ -56,21 +53,9 @@ export function ThemeMenu() {
       setOpen(false);
       return;
     }
-    // Synchronous, so the circle reveals the page with the menu closed and the new icon.
-    const change = () => {
-      flushSync(() => {
-        setPreference(choice);
-        setOpen(false);
-      });
-      choosePreference(choice);
-    };
-    // Match device can pick the theme already showing; then there is nothing to reveal.
-    if (themeFor(choice) === currentTheme() || !button.current) {
-      change();
-      return;
-    }
-    const box = button.current.getBoundingClientRect();
-    revealFrom({ x: box.left + box.width / 2, y: box.top + box.height / 2 }, change);
+    setPreference(choice);
+    setOpen(false);
+    choosePreference(choice);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {

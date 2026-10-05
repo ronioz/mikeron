@@ -44,7 +44,8 @@ def get_account(user: CurrentUser, db: DbSession) -> Account:
 
 @router.patch("")
 def update_account(data: AccountUpdate, user: CurrentUser, db: DbSession) -> Account:
-    user.monthly_budget = data.monthly_budget
+    user.plan_amount = data.plan_amount
+    user.plan_period = data.plan_period
     db.commit()
     return Account.model_validate(user)
 

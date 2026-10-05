@@ -20,6 +20,7 @@ from pydantic_core import PydanticCustomError
 Price = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=4)]
 Shares = Annotated[Decimal, Field(gt=0, max_digits=18, decimal_places=8)]
 Fee = Annotated[Decimal, Field(ge=0, max_digits=18, decimal_places=4)]
+PlanAmount = Annotated[Decimal, Field(ge=0, max_digits=18, decimal_places=4)]
 
 # Ratios can have endless decimals (60 / 0.27), so they are cut off on the way
 # out. Eight places is far more than any screen shows: whoever displays the
@@ -40,6 +41,11 @@ PerShare = Ratio
 # The brokers a trade can name: TBC Bank and Bank of Georgia. Add one here,
 # and to BROKERS in frontend/src/brokers.ts; the database needs no change.
 Broker = Literal["tbc", "bog"]
+
+# How often a plan's amount is put in. Adding one means adding it here, to the
+# check on users.plan_period (a migration), to period_bounds in
+# app/portfolio.py and to PERIODS in frontend/src/plan.ts.
+PlanPeriod = Literal["weekly", "monthly", "quarterly"]
 
 
 class TradeIn(BaseModel):
@@ -217,11 +223,13 @@ class YearTotal(BaseModel):
 
 class Summary(Totals):
     trade_count: int
-    # New money put into purchases this month, to compare with the monthly budget.
-    this_month: Decimal
-    # Purchases this month paid with cash from sales, which the budget leaves out.
-    this_month_from_cash: Decimal
-    monthly_budget: Decimal
+    # The plan: how much new money is meant to go in every week, month or quarter.
+    plan_amount: Decimal
+    plan_period: PlanPeriod
+    # New money put into purchases in the period going on now, to compare with the plan.
+    this_period: Decimal
+    # That period's purchases paid with cash from sales, which the plan leaves out.
+    this_period_from_cash: Decimal
     years: list[YearTotal]
 
 
@@ -255,6 +263,9 @@ Client = Literal["web", "app"]
 class SignUpIn(BaseModel):
     email: Email
     password: NewPassword
+    # Their own plan. Both are required: none is assumed for anyone.
+    plan_amount: PlanAmount
+    plan_period: PlanPeriod
 
 
 class SignInIn(BaseModel):
@@ -290,14 +301,16 @@ class PasswordIn(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    monthly_budget: Annotated[Decimal, Field(ge=0, max_digits=18, decimal_places=4)]
+    plan_amount: PlanAmount
+    plan_period: PlanPeriod
 
 
 class Account(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     email: str
-    monthly_budget: Decimal
+    plan_amount: Decimal
+    plan_period: PlanPeriod
     created_at: datetime
     # The broker of the trade recorded most recently, for a new trade to start
     # with. Only filled in by GET /api/me.

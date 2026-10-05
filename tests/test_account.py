@@ -72,8 +72,19 @@ def test_deleting_the_account_removes_everything_in_it(account, new_client):
     assert [t["ticker"] for t in ben.get("/api/trades").json()] == ["MU"]
 
 
-def test_the_monthly_plan_cannot_be_negative(account):
+def test_changing_the_plan(account):
     ana = account()
-    response = ana.patch("/api/me", json={"monthly_budget": "-1"})
-    assert response.status_code == 422
-    assert ana.get("/api/me").json()["monthly_budget"] == "30.0000"
+    response = ana.patch("/api/me", json={"plan_amount": "12.50", "plan_period": "weekly"})
+    assert response.status_code == 200
+    assert response.json()["plan_period"] == "weekly"
+
+    # A plan is an amount that isn't negative and one of the three periods, both given.
+    for refused in (
+        {"plan_amount": "-1", "plan_period": "weekly"},
+        {"plan_amount": "5", "plan_period": "daily"},
+        {"plan_amount": "5"},
+        {"plan_period": "monthly"},
+    ):
+        assert ana.patch("/api/me", json=refused).status_code == 422, refused
+    me = ana.get("/api/me").json()
+    assert (me["plan_amount"], me["plan_period"]) == ("12.5000", "weekly")

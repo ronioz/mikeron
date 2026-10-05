@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from helpers import bearer
+from helpers import bearer, sign_up
 from sqlalchemy import text
 
 from app import limits
@@ -26,7 +26,9 @@ def run_sql(sql: str, **params) -> None:
 
 def test_sign_up_confirm_and_use_the_journal(new_client, outbox):
     client = new_client()
-    response = client.post("/api/auth/sign-up", json={"email": "Ana@Example.com", "password": PASSWORD})
+    response = sign_up(
+        client, "Ana@Example.com", PASSWORD, plan_amount="45.50", plan_period="weekly"
+    )
     assert response.status_code == 202
     assert response.json() == {"email": ANA}
     # Nothing is open until the address is confirmed.
@@ -42,32 +44,36 @@ def test_sign_up_confirm_and_use_the_journal(new_client, outbox):
 
     assert client.get("/api/me").json()["email"] == ANA
     assert client.get("/api/trades").json() == []
-    assert client.get("/api/summary").json()["monthly_budget"] == "30.0000"
+    # The plan is the one they gave, in the account and on the journal.
+    for page in ("/api/me", "/api/summary"):
+        shown = client.get(page).json()
+        assert (shown["plan_amount"], shown["plan_period"]) == ("45.5000", "weekly"), page
 
 
-def test_a_taken_address_gets_the_same_answer_and_keeps_its_password(account, new_client, outbox):
-    account(ANA, PASSWORD)
+def test_a_taken_address_gets_the_same_answer_and_keeps_what_it_has(account, new_client, outbox):
+    ana = account(ANA, PASSWORD)
     stranger = new_client()
-    response = stranger.post(
-        "/api/auth/sign-up", json={"email": ANA, "password": "someone-else-1"}
-    )
+    response = sign_up(stranger, ANA, "someone-else-1", plan_amount="999", plan_period="weekly")
     assert response.status_code == 202
     assert response.json() == {"email": ANA}
     # The address's owner hears about it; no code goes out.
     assert outbox.to(ANA)[-1][1] == "You already have a Mikeronn account"
     assert sign_in(new_client(), password="someone-else-1").status_code == 401
     assert sign_in(new_client()).status_code == 200
+    # The plan stays the owner's too.
+    me = ana.get("/api/me").json()
+    assert (me["plan_amount"], me["plan_period"]) == ("30.0000", "monthly")
 
 
 def test_an_unconfirmed_sign_up_is_replaced_by_the_next(new_client, outbox):
     first = new_client()
-    first.post("/api/auth/sign-up", json={"email": ANA, "password": "first-password"})
+    sign_up(first, ANA, "first-password", plan_amount="10", plan_period="weekly")
     first_code = outbox.code_for(ANA)
     limits.CODE_EMAILS_PER_MINUTE.clear()
     second = new_client()
-    second.post("/api/auth/sign-up", json={"email": ANA, "password": "second-password"})
+    sign_up(second, ANA, "second-password", plan_amount="200", plan_period="quarterly")
     second_code = outbox.code_for(ANA)
-    # Only the newest code works, and with it the newest password.
+    # Only the newest code works, and with it the newest password and plan.
     if first_code != second_code:
         response = first.post("/api/auth/confirm", json={"email": ANA, "code": first_code})
         assert response.status_code == 422
@@ -75,11 +81,13 @@ def test_an_unconfirmed_sign_up_is_replaced_by_the_next(new_client, outbox):
     assert response.status_code == 200
     assert sign_in(new_client(), password="first-password").status_code == 401
     assert sign_in(new_client(), password="second-password").status_code == 200
+    me = second.get("/api/me").json()
+    assert (me["plan_amount"], me["plan_period"]) == ("200.0000", "quarterly")
 
 
 def test_five_wrong_codes_use_the_code_up(new_client, outbox):
     client = new_client()
-    client.post("/api/auth/sign-up", json={"email": ANA, "password": PASSWORD})
+    sign_up(client, ANA, PASSWORD)
     code = outbox.code_for(ANA)
     wrong = "000000" if code != "000000" else "111111"
     for _ in range(5):
@@ -99,7 +107,7 @@ def test_five_wrong_codes_use_the_code_up(new_client, outbox):
 
 def test_an_expired_code_fails(new_client, outbox):
     client = new_client()
-    client.post("/api/auth/sign-up", json={"email": ANA, "password": PASSWORD})
+    sign_up(client, ANA, PASSWORD)
     run_sql("UPDATE email_codes SET expires_at = now() - interval '1 second'")
     response = client.post("/api/auth/confirm", json={"email": ANA, "code": outbox.code_for(ANA)})
     assert response.status_code == 422
@@ -107,7 +115,7 @@ def test_an_expired_code_fails(new_client, outbox):
 
 def test_a_code_with_spaces_is_accepted(new_client, outbox):
     client = new_client()
-    client.post("/api/auth/sign-up", json={"email": ANA, "password": PASSWORD})
+    sign_up(client, ANA, PASSWORD)
     code = outbox.code_for(ANA)
     spaced = f"{code[:3]} {code[3:]}"
     assert client.post("/api/auth/confirm", json={"email": ANA, "code": spaced}).status_code == 200
@@ -115,7 +123,7 @@ def test_a_code_with_spaces_is_accepted(new_client, outbox):
 
 def test_an_unconfirmed_account_cannot_sign_in(new_client, outbox):
     client = new_client()
-    client.post("/api/auth/sign-up", json={"email": ANA, "password": PASSWORD})
+    sign_up(client, ANA, PASSWORD)
     # A wrong password says nothing about the account.
     assert sign_in(client, password="wrong-password").status_code == 401
 
@@ -235,7 +243,7 @@ def test_sign_up_can_be_closed(new_client):
     try:
         client = new_client()
         assert client.get("/api/auth/options").json() == {"sign_up_open": False}
-        response = client.post("/api/auth/sign-up", json={"email": ANA, "password": PASSWORD})
+        response = sign_up(client, ANA, PASSWORD)
         assert response.status_code == 403
     finally:
         settings.sign_up_open = True
@@ -243,12 +251,38 @@ def test_sign_up_can_be_closed(new_client):
 
 def test_short_passwords_and_bad_addresses_are_refused(new_client):
     client = new_client()
-    response = client.post("/api/auth/sign-up", json={"email": ANA, "password": "short"})
+    response = sign_up(client, ANA, "short")
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "password"]
-    response = client.post("/api/auth/sign-up", json={"email": "not-an-address", "password": PASSWORD})
+    response = sign_up(client, "not-an-address", PASSWORD)
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "email"]
+
+
+def test_signing_up_needs_a_plan_of_ones_own(new_client, outbox):
+    client = new_client()
+    # Neither the amount nor how often is ever filled in for someone.
+    for plan, refused in (
+        ({}, "plan_amount"),
+        ({"plan_period": "monthly"}, "plan_amount"),
+        ({"plan_amount": "", "plan_period": "monthly"}, "plan_amount"),
+        ({"plan_amount": "-5", "plan_period": "monthly"}, "plan_amount"),
+        ({"plan_amount": "30"}, "plan_period"),
+        ({"plan_amount": "30", "plan_period": ""}, "plan_period"),
+        ({"plan_amount": "30", "plan_period": "yearly"}, "plan_period"),
+    ):
+        response = client.post(
+            "/api/auth/sign-up", json={"email": ANA, "password": PASSWORD, **plan}
+        )
+        assert response.status_code == 422, plan
+        assert response.json()["detail"][0]["loc"] == ["body", refused], plan
+    # Nothing was made of any of them.
+    assert not outbox.to(ANA)
+    assert sign_in(client).status_code == 401
+
+    for period in ("weekly", "monthly", "quarterly"):
+        email = f"{period}@example.com"
+        assert sign_up(new_client(), email, PASSWORD, plan_period=period).status_code == 202
 
 
 def test_other_websites_cannot_sign_people_in(new_client):
