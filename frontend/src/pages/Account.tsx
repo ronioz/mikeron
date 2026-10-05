@@ -14,7 +14,7 @@ export function AccountPage() {
     <>
       <title>Account · Mikeronn</title>
       <div className="page-head">
-        <h1>Account</h1>
+        <h1 className="plain-title">Account</h1>
       </div>
       <Loadable state={state}>{(account) => <Settings account={account} />}</Loadable>
     </>

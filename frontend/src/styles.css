@@ -4,7 +4,8 @@
  * thin lines rather than boxed in cards.
  *
  * Type: Instrument Serif for words on display only (the name in the header,
- * page titles, section headings). Every figure and every note on why a trade
+ * page titles, section headings), except on the sign-in and account pages,
+ * whose titles and headings are in the sans. Every figure and every note on why a trade
  * was made is in Instrument Sans, like the rest of the text. Large standalone
  * figures keep the sans's default proportional digits; columns of figures
  * switch to its equal-width ones (tabular-nums) so they line up.
@@ -1202,13 +1203,17 @@ textarea {
   margin-left: auto;
 }
 
-/* The title is in the sans here, like the Edit buttons and figures, not the serif. */
-.auth-page h1 {
-  margin-top: 24px;
+/* The title is in the sans here and on the account page, like the Edit buttons and figures, not the serif. */
+.auth-page h1,
+.plain-title {
   font-family: var(--font-sans);
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.1;
+}
+
+.auth-page h1 {
+  margin-top: 24px;
 }
 
 .lede {
@@ -1252,9 +1257,11 @@ textarea {
 
 .setting h2 {
   margin: 0 0 8px;
-  font-family: var(--font-serif);
-  font-size: 1.75rem;
-  line-height: 1.1;
+  font-family: var(--font-sans);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .setting-intro {
