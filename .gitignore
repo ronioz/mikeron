@@ -7,3 +7,5 @@ node_modules/
 frontend/dist/
 # Database dumps hold personal trade data.
 backups/
+# Claude Code's own folders, such as the worktrees of other sessions.
+.claude/

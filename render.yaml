@@ -6,6 +6,8 @@ services:
     runtime: docker
     plan: free
     region: frankfurt
+    # Where the website and the server are worked on: every push to it deploys.
+    branch: web-application
     # Checked before a new version takes over; it also checks the database.
     healthCheckPath: /healthz
     envVars:

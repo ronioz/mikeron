@@ -463,14 +463,18 @@ after 30 days.
    with Postgres 17, as in `docker-compose.yml`. Under Connect, turn off
    connection pooling and copy the connection string.
 2. On Render, sign in with GitHub, choose New → Blueprint and pick this
-   repository. Paste the connection string as `DATABASE_URL`, your Finnhub key
-   as `FINNHUB_API_KEY` and your Twelve Data key as `TWELVE_DATA_API_KEY`, then
-   deploy.
+   repository and its `web-application` branch. Paste the connection string as
+   `DATABASE_URL`, your Finnhub key as `FINNHUB_API_KEY` and your Twelve Data
+   key as `TWELVE_DATA_API_KEY`, then deploy.
 3. When it's live, open the `onrender.com` address Render shows and create an
    account. The code is in the service's Logs tab.
 
-Every push to `main` deploys again, and the new version applies any migrations
-as it starts. Things to know:
+Every push to `web-application` deploys again, and the new version applies any
+migrations as it starts. Things to know:
+
+- Emails aren't sent, so only whoever can read the Logs tab can finish a
+  sign-up. For a private beta that is the invitation: a friend signs up, you
+  read their code in the log and pass it on. A code works for 15 minutes.
 
 - It starts with an empty database. The journal on your computer stays there;
   moving it is a dump and restore (see [Backups](#backups)).
