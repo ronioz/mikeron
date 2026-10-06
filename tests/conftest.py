@@ -1,4 +1,4 @@
-"""Shared test setup: a throwaway database, stand-in prices and an email outbox.
+"""Shared test setup: a throwaway database, stand-in prices and closes, and an email outbox.
 
 The tests need the Docker database running (docker compose up -d db). They
 create the database mikeronn_test, empty it before every test and drop it at
@@ -9,7 +9,7 @@ any app code runs, and a name like the real database's is refused.
 import os
 import re
 from collections.abc import Callable, Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -22,6 +22,7 @@ TEST_DB = "mikeronn_test"
 os.environ.update(
     DATABASE_URL=scratch_url(TEST_DB),
     FINNHUB_API_KEY="",
+    TWELVE_DATA_API_KEY="",
     MAIL_BACKEND="log",
     SIGN_UP_OPEN="true",
 )
@@ -50,7 +51,9 @@ def empty_database() -> None:
 
     with engine.begin() as conn:
         # Sessions, codes and trades go with the users they belong to.
-        conn.execute(text("TRUNCATE users, trades, quotes RESTART IDENTITY CASCADE"))
+        conn.execute(
+            text("TRUNCATE users, trades, quotes, closes, close_fetches RESTART IDENTITY CASCADE")
+        )
     for limit in limits.ALL:
         limit.clear()
 
@@ -85,19 +88,57 @@ class StandInPrices:
         return {ticker: PRICES.get(ticker) for ticker in tickers}
 
 
+class StandInCloses:
+    """Stands in for Twelve Data: hands out the closes a test gives it and notes what was asked."""
+
+    def __init__(self) -> None:
+        # Per ticker, (day, close) pairs. A ticker not listed is unknown to it.
+        self.closes: dict[str, list[tuple]] = {}
+        # Tickers whose lookup fails, as during an outage or over the rate limit.
+        self.failing: set[str] = set()
+        self.asked: list[list[str]] = []
+
+    def fetch(self, tickers):
+        self.asked.append(list(tickers))
+        return {
+            ticker: self.closes.get(ticker) for ticker in tickers if ticker not in self.failing
+        }
+
+
+class Clock:
+    """The time the closes are asked for, which a test can move."""
+
+    def __init__(self) -> None:
+        # A Tuesday evening in New York (18:00), an hour after that day's close settled.
+        self.now = datetime(2026, 10, 6, 22, 0, tzinfo=UTC)
+
+
 @pytest.fixture
 def outbox() -> Outbox:
     return Outbox()
 
 
 @pytest.fixture
-def app(outbox: Outbox):
+def closes() -> StandInCloses:
+    return StandInCloses()
+
+
+@pytest.fixture
+def clock() -> Clock:
+    return Clock()
+
+
+@pytest.fixture
+def app(outbox: Outbox, closes: StandInCloses, clock: Clock):
+    from app.closes import CloseCache, get_close_cache
     from app.mail import get_mailer
     from app.main import app
     from app.prices import QuoteCache, get_quote_cache
 
     prices = QuoteCache(StandInPrices(), timedelta(0))
+    close_cache = CloseCache(closes, lambda: clock.now)
     app.dependency_overrides[get_quote_cache] = lambda: prices
+    app.dependency_overrides[get_close_cache] = lambda: close_cache
     app.dependency_overrides[get_mailer] = lambda: outbox
     yield app
     app.dependency_overrides.clear()

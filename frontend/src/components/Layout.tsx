@@ -14,7 +14,11 @@ export function Layout() {
             Journal
           </NavLink>
           <NavLink to="/portfolio">Portfolio</NavLink>
-          <NavLink to="/account">Account</NavLink>
+          <NavLink to="/graphs">Graphs</NavLink>
+          {/* About the person rather than the trades: an icon, which styles.css sends to the right. */}
+          <NavLink className="account-link" to="/account" aria-label="Account" title="Account">
+            <PersonIcon />
+          </NavLink>
         </nav>
         <div className="header-actions">
           <ThemeMenu />
@@ -27,5 +31,15 @@ export function Layout() {
         <Outlet />
       </main>
     </>
+  );
+}
+
+/** Head and shoulders, drawn like the theme switch's icons. */
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.75" />
+      <path d="M5 20a7 5 0 0 1 14 0" />
+    </svg>
   );
 }

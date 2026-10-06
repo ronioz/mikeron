@@ -2,6 +2,7 @@ import type {
   Account,
   AuthOptions,
   CodeSent,
+  Graphs,
   PlanPeriod,
   Portfolio,
   SignedIn,
@@ -84,6 +85,7 @@ export const api = {
   deleteTrade: (id: number) => request<void>(`/trades/${id}`, { method: "DELETE" }),
   getSummary: () => request<Summary>("/summary"),
   getPortfolio: () => request<Portfolio>("/portfolio"),
+  getGraphs: () => request<Graphs>("/graphs"),
 
   getAccount: () => request<Account>("/me"),
   setPlan: (amount: string, period: PlanPeriod) =>

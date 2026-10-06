@@ -8,7 +8,6 @@ import { DonutChart } from "../components/DonutChart";
 import { isMoney } from "../cash";
 import {
   CashStat,
-  Change,
   Delta,
   FeesStat,
   Hero,
@@ -19,7 +18,7 @@ import {
   ValueHero,
 } from "../components/figures";
 import { Loadable } from "../components/Loadable";
-import { formatMoney, formatPercent, formatShares, formatSignedMoney } from "../format";
+import { formatMoney } from "../format";
 import type { Broker, BrokerPortfolio, Portfolio, Position } from "../types";
 import { REFRESH_MS, useApi } from "../useApi";
 
@@ -254,20 +253,14 @@ function HoldingsDetail({ positions, priced, total, broker }: DetailProps) {
 
       <section className="page-section">
         <h2 className="section-heading">Holdings</h2>
-        <div className="table-wrap">
+        <div className="table-wrap holdings-table">
           <table>
             <thead>
               <tr>
                 <th>Ticker</th>
-                <th className="number">Shares</th>
-                {/* Per share, fees included, like Invested beside it. */}
-                <th className="number">Avg cost</th>
-                {/* What each holding cost, fees included. Not "Put in": reinvested gains are part of it. */}
-                <th className="number">Cost</th>
+                {/* One share's price, then what all the shares held are worth at it. */}
                 <th className="number">Price now</th>
-                <th className="number">Value</th>
-                <th className="number">Gain</th>
-                <th className="number">Share</th>
+                <th className="number">Value now</th>
                 <th>
                   <span className="visually-hidden">Actions</span>
                 </th>
@@ -283,9 +276,6 @@ function HoldingsDetail({ positions, priced, total, broker }: DetailProps) {
                     />{" "}
                     <span className="ticker">{position.ticker}</span>
                   </td>
-                  <td className="number">{formatShares(position.shares)}</td>
-                  <td className="number">{formatMoney(position.average_price)}</td>
-                  <td className="number">{formatMoney(position.cost)}</td>
                   <td className="number">
                     {position.current_price !== null ? formatMoney(position.current_price) : "–"}
                   </td>
@@ -293,16 +283,6 @@ function HoldingsDetail({ positions, priced, total, broker }: DetailProps) {
                     {formatMoney(position.value)}
                     {priced && position.current_price === null && <small> at cost</small>}
                   </td>
-                  <td className="number">
-                    {position.gain !== null && position.gain_pct !== null ? (
-                      <>
-                        {formatSignedMoney(position.gain)} <Change percent={position.gain_pct} />
-                      </>
-                    ) : (
-                      "–"
-                    )}
-                  </td>
-                  <td className="number">{formatPercent(position.share_pct)}</td>
                   <td className="row-actions">
                     <Link
                       to={`/trades/new?side=sell&ticker=${encodeURIComponent(position.ticker)}${at}`}

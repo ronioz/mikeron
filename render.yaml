@@ -10,10 +10,12 @@ services:
     healthCheckPath: /healthz
     envVars:
       # Asked for when the Blueprint is first applied: Neon's connection string
-      # and the Finnhub key from your .env.
+      # and the Finnhub and Twelve Data keys from your .env.
       - key: DATABASE_URL
         sync: false
       - key: FINNHUB_API_KEY
+        sync: false
+      - key: TWELVE_DATA_API_KEY
         sync: false
       # Render's proxy is the only way in. It says who the visitor is and that
       # they came over HTTPS, which the app only believes with this set.

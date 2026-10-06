@@ -7,6 +7,7 @@ import { AuthLayout } from "./components/AuthLayout";
 import { Layout } from "./components/Layout";
 import { AccountPage } from "./pages/Account";
 import { Dashboard } from "./pages/Dashboard";
+import { GraphsPage } from "./pages/Graphs";
 import { NotFound } from "./pages/NotFound";
 import { PortfolioPage } from "./pages/Portfolio";
 import { ResetPassword } from "./pages/ResetPassword";
@@ -40,6 +41,7 @@ createRoot(root).render(
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="portfolio" element={<PortfolioPage />} />
+              <Route path="graphs" element={<GraphsPage />} />
               <Route path="trades/new" element={<TradeNew />} />
               <Route path="trades/:id" element={<TradeDetail />} />
               <Route path="trades/:id/edit" element={<TradeEdit />} />

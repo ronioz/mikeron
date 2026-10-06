@@ -162,6 +162,39 @@ export interface Summary extends Totals {
   years: YearTotal[];
 }
 
+/** How far apart a graph's points are: a close per day, week, month or year. See graphs.ts. */
+export type Spacing = "daily" | "weekly" | "monthly" | "yearly";
+
+export interface ValuePoint {
+  /** A calendar day, as YYYY-MM-DD. */
+  day: string;
+  /** Everything held that day at its closing prices, plus the cash from sales. */
+  value: Decimal;
+  /** The user's own money put in by then. */
+  money_in: Decimal;
+}
+
+/** What the portfolio was worth over time, at one spacing. */
+export interface Graph {
+  /** Oldest first, from the first trade on: the last close of each day, week, month or year. */
+  points: ValuePoint[];
+}
+
+export interface Graphs {
+  /** False when closing prices aren't set up, so there is nothing to draw. */
+  closes_enabled: boolean;
+  trade_count: number;
+  /** One for every spacing, all ending on the same point: the latest close. */
+  graphs: Record<Spacing, Graph>;
+  /** The last point's value against the money put in by then. Null without a point. */
+  total_gain: Decimal | null;
+  total_gain_pct: Decimal | null;
+  /** Tickers held on the last day and counted at what they cost: no closing prices for them. */
+  unpriced: string[];
+  /** Trades dated after the last point, which join the graph with their day's close. */
+  trades_after: number;
+}
+
 /** The signed-in person's account. */
 export interface Account {
   email: string;

@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -209,4 +210,24 @@ class Quote(Base):
     ticker: Mapped[str] = mapped_column(String(12), primary_key=True)
     # NULL means the price provider doesn't know this ticker.
     price: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Close(Base):
+    """A ticker's closing price on one trading day, kept so the graph needn't ask for it again."""
+
+    __tablename__ = "closes"
+
+    ticker: Mapped[str] = mapped_column(String(12), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    # Adjusted for share splits, so the whole history is on one scale.
+    close: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+
+
+class CloseFetch(Base):
+    """When a ticker's closes were last asked for, whether or not the provider had any."""
+
+    __tablename__ = "close_fetches"
+
+    ticker: Mapped[str] = mapped_column(String(12), primary_key=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -47,6 +47,10 @@ Broker = Literal["tbc", "bog"]
 # app/portfolio.py and to PERIODS in frontend/src/plan.ts.
 PlanPeriod = Literal["weekly", "monthly", "quarterly"]
 
+# How far apart the points of a graph are. Adding one means adding it here, to
+# REACH and _period in app/graphs.py and to SPACINGS in frontend/src/graphs.ts.
+Spacing = Literal["daily", "weekly", "monthly", "yearly"]
+
 
 class TradeIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -251,6 +255,39 @@ class Summary(Totals):
     # That period's purchases paid with cash from sales, which the plan leaves out.
     this_period_from_cash: Decimal
     years: list[YearTotal]
+
+
+class ValuePoint(BaseModel):
+    day: date
+    # Everything held that day at its closing prices, plus the cash from sales.
+    value: Decimal
+    # The user's own money put in by then.
+    money_in: Decimal
+
+
+class Graph(BaseModel):
+    """What the portfolio was worth over time, at one spacing."""
+
+    # Oldest first, from the first trade on: the value at the last close of
+    # each day, week, month or year, as far back as the spacing reaches.
+    points: list[ValuePoint]
+
+
+class Graphs(BaseModel):
+    # False when no key for closing prices is set, so there is nothing to draw.
+    closes_enabled: bool
+    trade_count: int
+    # One for every spacing, all ending on the same point: the latest close.
+    graphs: dict[Spacing, Graph]
+    # The last point's value against the money put in by then, as the journal's
+    # headline has it at live prices. None without a point, or with nothing put in.
+    total_gain: Decimal | None = None
+    total_gain_pct: Percent | None = None
+    # Tickers held on the last day and counted at what they cost, because
+    # there are no closing prices for them.
+    unpriced: list[str] = []
+    # Trades dated after the last point: they join the graph with their day's close.
+    trades_after: int = 0
 
 
 # Accounts.

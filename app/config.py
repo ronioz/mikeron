@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     finnhub_base_url: str = "https://finnhub.io/api/v1"
     # How long a fetched price is reused before asking the provider again.
     price_ttl_seconds: int = 60
+    # Closing prices for the graph. Empty key turns the graph off.
+    twelve_data_api_key: str = ""
+    twelve_data_base_url: str = "https://api.twelvedata.com"
 
     @field_validator("database_url")
     @classmethod

@@ -145,7 +145,7 @@ def test_amounts_already_stored_become_monthly_plans(before_plans):
 
 
 def test_downgrading_refuses_to_call_every_plan_monthly(before_plans):
-    assert alembic("upgrade", "head").returncode == 0
+    assert alembic("upgrade", "0008").returncode == 0
     with connect() as conn:
         conn.execute("UPDATE users SET plan_period = 'weekly' WHERE email = 'other@example.com'")
     result = alembic("downgrade", "0007")

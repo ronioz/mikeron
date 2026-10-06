@@ -5,13 +5,15 @@ shares, date, the broker you placed it with, why you bought, what you expect to
 happen, and the prices at which you plan to sell (take profit / stop loss). When
 you sell, you record the price, shares and why you sold, and the journal works
 out what the sale gained or lost. The journal shows what each holding is worth
-now, and a portfolio page shows how your money is spread across tickers.
+now, a portfolio page shows how your money is spread across tickers, and a
+graphs page draws what everything you held was worth over time.
 
 Everyone signs in with their own account and sees only their own journal.
 
 - **Backend:** FastAPI, SQLAlchemy and PostgreSQL, serving a JSON API under `/api`.
 - **Frontend:** React and TypeScript, built with Vite, in `frontend/`.
 - **Live prices:** Finnhub, cached in the database.
+- **Closing prices for the graphs:** Twelve Data, kept in the database.
 - **Email:** sign-up and password-reset codes, sent over SMTP (Resend, for example),
   or written to the server log until that is set up.
 
@@ -87,11 +89,13 @@ How the numbers work:
   from sales paid for. The gain under **Portfolio value** compares everything
   you have now (your shares plus your cash) with it, so it covers both the
   shares you still hold and every sale.
-- In the holdings table, **Cost** is what each holding's shares cost, fees
-  included, and **Avg cost** is that per share. Added up, the costs can come to
-  more than Put in: when you reinvest a sale's gain, it becomes part of what the
-  new shares cost, without any new money. **Gain from sales** (often called
-  realised gain) adds up what every sale gained or lost.
+- The holdings table lists each ticker with **Price now**, one share's live
+  price, and **Value now**, what all your shares of it are worth at that price.
+- A broker's part shows **Cost**: what the shares held there cost, fees
+  included. It can come to more than Put in: when you reinvest a sale's gain,
+  it becomes part of what the new shares cost, without any new money. **Gain
+  from sales** (often called realised gain) adds up what every sale gained or
+  lost.
 - **Fees** shows every fee paid and what share of the money you traded that is.
   On small purchases it adds up: a $1.50 fee on a $30 buy is 5%.
 - **Portfolio value** is what the shares you hold are worth plus your **Cash**,
@@ -181,6 +185,55 @@ Things to know:
 - If Finnhub can't be reached, the last known prices stay on screen with the
   time they were fetched.
 
+## Graphs
+
+The Graphs page draws one line: what everything you held was worth at each
+close, from your first trade on. On every day it counts the shares you held
+that day at that day's closing prices, plus the cash from sales, so it is the
+journal's "Portfolio value" looked back over time. A switch sets how far apart
+the points are:
+
+| Spacing | Each point is | Reaching back |
+| --- | --- | --- |
+| Daily | the value at a day's close | 3 months |
+| Weekly | the value at the last close of a week | 2 years |
+| Monthly | the value at the last close of a month | 10 years |
+| Yearly | the value at the last close of a year | to your first trade |
+
+The line rises when you buy as well as when prices do, so the headline compares
+the latest value with the money you had put in by then, and pointing at any day
+shows both.
+
+Live prices can't draw this: Finnhub's free plan has no price history. The
+closes come from Twelve Data instead. To turn the graph on:
+
+1. Create a free account at <https://twelvedata.com> and copy the API key from
+   the dashboard.
+2. In `.env`, set `TWELVE_DATA_API_KEY`.
+3. Run `docker compose up -d`.
+
+Things to know:
+
+- The free Twelve Data plan covers US-listed stocks and ETFs and allows 800
+  requests a day, 8 a minute. It is for personal use, not for showing prices to
+  the public.
+- One request brings a ticker's daily closes for about twenty years, adjusted
+  for share splits. They are kept in the database, and the weekly, monthly and
+  yearly points are worked out from them.
+- Closes are kept for every ticker in your journal, sold or not: one you sold
+  was still part of the total while you held it.
+- A ticker's closes are asked for again once a new one is final: at 17:00 in New
+  York, an hour after US exchanges shut, Monday to Friday. That is one request
+  per ticker per trading day, however often the page is opened.
+- Before then the day going on is left out. Twelve Data lists it already, with
+  the latest price where the close will be, and the graph shows closes only. A
+  trade made today joins the graph with today's close.
+- More than eight tickers can't all be fetched within one minute: the rest are
+  asked for a minute later, the next time the page is opened.
+- A ticker Twelve Data doesn't know is counted at what you paid for it, and the
+  page says so. If Twelve Data can't be reached, the closes fetched earlier
+  stay in use.
+
 ## Email
 
 With the default `MAIL_BACKEND=log`, emails aren't sent: each one, code
@@ -217,6 +270,7 @@ Copy `.env.example` to `.env` to change any of these.
 | --- | --- | --- |
 | `FINNHUB_API_KEY` | empty | Finnhub key. Empty turns live prices off |
 | `PRICE_TTL_SECONDS` | `60` | How long a fetched price is reused |
+| `TWELVE_DATA_API_KEY` | empty | Twelve Data key. Empty turns the graph off |
 | `SIGN_UP_OPEN` | `true` | Whether new accounts can be created |
 | `SESSION_DAYS` | `90` | How long a device stays signed in after it was last used |
 | `MAIL_BACKEND` | `log` | `log` writes emails to the server log; `smtp` sends them |
@@ -304,7 +358,8 @@ app/                   backend
   main.py              app setup, routing, serves the built frontend
   config.py            settings read from environment variables
   db.py                database engine and session
-  models.py            the tables: users, sessions, emailed codes, trades, quotes
+  models.py            the tables: users, sessions, emailed codes, trades, quotes,
+                       closes
   schemas.py           what the API accepts and returns
   crud.py              trade queries, each for one account, and the check that
                        every sale has the shares it needs
@@ -316,15 +371,19 @@ app/                   backend
   ledger.py            which purchased shares each sale used (oldest first)
   cash.py              the cash sales leave, and which purchases reused it
   prices.py            live prices: Finnhub client and the cache in front of it
+  closes.py            closing prices: Twelve Data client and the cache in front of it
   portfolio.py         the arithmetic: values, gains, positions, totals
+  graphs.py            the arithmetic: what was held and what it was worth at each
+                       close, a point per day, week, month and year
   deps.py              who is signed in, cross-site request check, trade lookup
   routers/
     auth.py            /api/auth: sign up, confirm, sign in and out, reset
     account.py         /api/me: the signed-in account
     trades.py          /api/trades
-    portfolio.py       /api/summary and /api/portfolio
+    portfolio.py       /api/summary, /api/portfolio and /api/graphs
 migrations/            Alembic migrations
-tests/                 pytest: accounts, plans, brokers, isolation between them, the upgrades
+tests/                 pytest: accounts, plans, brokers, graphs, isolation between them,
+                       the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -339,13 +398,14 @@ frontend/              React + TypeScript app
     deleteTrade.ts     asks before deleting a trade
     theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours
+    graphs.ts          the graph's spacings, and the amounts and dates along its edges
     useApi.ts          loading data, with periodic refresh
     components/        layouts, trade form, broker tags, the emailed-code step,
-                       the plan's two fields, ring chart, headline figure and
-                       stats, the journal's tap-to-open trade lines for phones
-                       and narrow windows
-    pages/             journal, portfolio, trade report, add / edit, sign in,
-                       create an account, reset a password, account
+                       the plan's two fields, ring chart, the line of the
+                       portfolio's value, headline figure and stats, the journal's
+                       tap-to-open trade lines for phones and narrow windows
+    pages/             journal, portfolio, graphs, trade report, add / edit,
+                       sign in, create an account, reset a password, account
     styles.css         the look: colours and type for both themes, then layout
 ```
 
@@ -388,8 +448,9 @@ Postgres. Before putting it on the public internet:
   marks the cookie as HTTPS-only.
 - Set up email (see [Email](#email)) with your domain, or nobody can confirm
   their address.
-- Opening sign-up to the public also needs a privacy policy, and a live-price
-  plan that allows it: Finnhub's free plan is for personal, non-commercial use.
+- Opening sign-up to the public also needs a privacy policy, and price plans
+  that allow it: the free plans of Finnhub (live prices) and Twelve Data
+  (closing prices) are for personal use.
 
 ### A free test deploy on Render and Neon
 
@@ -402,8 +463,9 @@ after 30 days.
    with Postgres 17, as in `docker-compose.yml`. Under Connect, turn off
    connection pooling and copy the connection string.
 2. On Render, sign in with GitHub, choose New → Blueprint and pick this
-   repository. Paste the connection string as `DATABASE_URL` and your Finnhub key
-   as `FINNHUB_API_KEY`, then deploy.
+   repository. Paste the connection string as `DATABASE_URL`, your Finnhub key
+   as `FINNHUB_API_KEY` and your Twelve Data key as `TWELVE_DATA_API_KEY`, then
+   deploy.
 3. When it's live, open the `onrender.com` address Render shows and create an
    account. The code is in the service's Logs tab.
 

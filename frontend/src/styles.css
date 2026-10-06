@@ -154,23 +154,27 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 40px;
+  /* What lies between the Account icon, the theme switch and Add trade. */
+  gap: 8px;
   padding-top: 20px;
   padding-bottom: 20px;
 }
 
 .brand {
+  /* With the header's gap, 40px before the navigation. */
+  margin-right: 32px;
   color: var(--text);
   font-family: var(--font-serif);
-  font-size: 1.625rem;
+  font-size: 2rem;
   line-height: 1;
   text-decoration: none;
 }
 
+/* Reaches as far as the theme switch, so the Account link can sit beside it. */
 .site-nav {
   display: flex;
+  flex-grow: 1;
   gap: 24px;
-  margin-right: auto;
 }
 
 .site-nav a {
@@ -189,6 +193,42 @@ main {
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 8px;
+}
+
+/*
+ * The way to the account page: a person in a hairline circle, at the right
+ * with the theme switch and Add trade, apart from the pages of trades.
+ */
+.site-nav .account-link {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+
+/* On the account page, a ring in the text colour stands in for the line under a page's name. */
+.site-nav .account-link.active {
+  border-color: var(--text);
+}
+
+/*
+ * Pointing at it turns it over: filled with the text colour, the person in the
+ * page's. So black on the light theme and white on the dark one, like Add
+ * trade. Only where a pointer can hover: a phone would leave it filled after
+ * a tap.
+ */
+@media (hover: hover) {
+  .site-nav .account-link:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+  }
 }
 
 .header-actions {
@@ -224,7 +264,9 @@ main {
   background: var(--raised);
 }
 
-.theme-menu svg {
+/* The header's icons are drawn alike: the theme switch's and the person on the Account link. */
+.theme-menu svg,
+.account-link svg {
   flex: none;
   width: 20px;
   height: 20px;
@@ -837,6 +879,11 @@ a.ticker:hover {
   line-height: 1.2;
 }
 
+/* With no button under it, the sentence is all there is. */
+.empty p:last-child {
+  margin-bottom: 0;
+}
+
 /* A heading over a part of a page, such as the chart or the holdings. */
 .section-heading {
   margin: 0 0 16px;
@@ -905,7 +952,8 @@ a.ticker:hover {
 }
 
 /* A chevron that points down when closed and up when open. */
-.trade-item summary::after {
+.trade-item summary::after,
+.values-table summary::after {
   content: "";
   flex: none;
   width: 8px;
@@ -917,11 +965,13 @@ a.ticker:hover {
   transition: transform 150ms;
 }
 
-.trade-item summary:hover::after {
+.trade-item summary:hover::after,
+.values-table summary:hover::after {
   border-color: var(--text);
 }
 
-.trade-item[open] summary::after {
+.trade-item[open] summary::after,
+.values-table[open] summary::after {
   transform: translateY(2px) rotate(225deg);
 }
 
@@ -1342,6 +1392,11 @@ textarea {
   margin-top: 56px;
 }
 
+/* Three short columns: kept together rather than spread across a wide page. */
+.holdings-table {
+  max-width: 560px;
+}
+
 .donut {
   display: flex;
   flex-wrap: wrap;
@@ -1462,20 +1517,176 @@ td .swatch {
   margin-right: 4px;
 }
 
-/* Phones */
+/* Graphs: what everything held was worth at each close, as a line */
 
-@media (max-width: 640px) {
+/* How far apart the points are. As wide as the portfolio's switch. */
+.graphs-switch {
+  max-width: 420px;
+}
+
+.graphs-note {
+  margin-top: 12px;
+}
+
+/* Under the headline: what the total leaves out or counts at cost. */
+.graphs-caveat {
+  margin: -8px 0 28px;
+}
+
+.value-chart {
+  position: relative;
+  margin-top: 24px;
+  /* While the window is being narrowed, the line drawn for the old width mustn't widen the page. */
+  overflow: hidden;
+  cursor: crosshair;
+  /* A finger moving along it picks a point; moving up or down still scrolls the page. */
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.value-chart svg {
+  display: block;
+}
+
+/* Hairlines a step off the page, so the line of values is what stands out. */
+.value-grid {
+  stroke: var(--line);
+}
+
+.value-amount,
+.value-date {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.value-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.value-line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A wash of the line's colour, down to the dates. */
+.value-area {
+  fill: var(--series-1);
+  opacity: 0.08;
+}
+
+/* On the latest close and on a picked one, ringed in the page colour where it sits on the line. */
+.value-dot {
+  fill: var(--series-1);
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.value-crosshair {
+  stroke: var(--muted);
+}
+
+/* A picked day's value, the day and the money put in by then, beside the line through it. */
+.value-readout {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(10px);
+}
+
+/* Past the middle it goes to the left of the line, so it never leaves the graph. */
+.value-readout.before {
+  transform: translateX(calc(-100% - 10px));
+}
+
+.value-readout strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.value-readout span {
+  color: var(--muted);
+}
+
+/* The graph's points as figures, under it: closed until asked for. */
+.values-table {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.values-table summary {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.values-table summary::-webkit-details-marker {
+  display: none;
+}
+
+.values-table summary:hover,
+.values-table[open] summary {
+  color: var(--text);
+}
+
+/* Ten years of months is a long list: it scrolls in place, under its column names. */
+.values-table .table-wrap {
+  max-width: 560px;
+  max-height: 440px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.values-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+
+/*
+ * Phones, and any window narrower than the header's one row needs: with three
+ * pages in the navigation that is about 680px, or 716px in the moment before
+ * the fonts arrive. The same width as where the figures go into one row.
+ */
+
+@media (max-width: 719px) {
   .site-header {
-    gap: 4px 12px;
+    column-gap: 12px;
   }
 
+  /* About as large as still fits on one line with the theme switch and Add trade on a 320px phone. */
   .brand {
-    font-size: 1.375rem;
+    margin-right: 0;
+    font-size: 1.625rem;
   }
 
+  /*
+   * A row of its own under the name, with Account at its right end. A little
+   * closer together than on a wide screen, so three pages and the icon fit a
+   * 320px phone.
+   */
   .site-nav {
     order: 3;
     flex-basis: 100%;
+    gap: 20px;
   }
 
   .header-actions {
