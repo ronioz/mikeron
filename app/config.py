@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://trades:trades@localhost:5432/trades"
     # Whether anyone can create an account. Existing accounts work either way.
     sign_up_open: bool = True
+    # The request header in which the host's proxy gives the visitor's address,
+    # where it sets one that visitors can't send themselves: CF-Connecting-IP
+    # behind Cloudflare, as on Render. Empty: the address uvicorn works out,
+    # which comes from X-Forwarded-For when FORWARDED_ALLOW_IPS trusts a proxy.
+    client_ip_header: str = ""
     # How long a browser or the app stays signed in after it was last used.
     session_days: int = 90
     # "log" writes emails into the server log instead of sending them, fine on

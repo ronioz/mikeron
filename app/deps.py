@@ -1,5 +1,6 @@
 from collections.abc import Hashable
 from datetime import datetime
+from ipaddress import ip_address
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -7,6 +8,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
 
 from app import accounts, crud
+from app.config import get_settings
 from app.db import DbSession
 from app.limits import Limit
 from app.models import WEB, Trade, User, UserSession
@@ -54,8 +56,23 @@ def reject_cross_site_writes(request: Request) -> None:
 
 
 def client_ip(request: Request) -> str:
-    # Behind a reverse proxy this is the proxy's address unless uvicorn trusts
-    # it to pass the visitor's on (FORWARDED_ALLOW_IPS).
+    """The network address a request came from, which the attempt limits count by.
+
+    Behind a reverse proxy that is the proxy's own address, unless the proxy
+    passes the visitor's on. X-Forwarded-For does that (uvicorn reads it when
+    FORWARDED_ALLOW_IPS trusts the proxy), but some proxies only add to what
+    the visitor sent in it, so a visitor can name any address and get a fresh
+    count. Where the host has a header visitors can't send, CLIENT_IP_HEADER
+    names it and it is believed instead.
+    """
+    header = get_settings().client_ip_header
+    if header:
+        try:
+            # Read as an address, so nothing else can become a key to count by.
+            return str(ip_address(request.headers.get(header, "").strip()))
+        except ValueError:
+            # Not sent, as on the host's own health checks from inside.
+            pass
     return request.client.host if request.client else "unknown"
 
 

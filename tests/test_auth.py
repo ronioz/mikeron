@@ -145,6 +145,45 @@ def test_wrong_passwords_are_limited(account, new_client):
     assert int(response.headers["retry-after"]) > 0
 
 
+def wrong_password(client, **headers) -> int:
+    body = {"email": ANA, "password": "wrong-password"}
+    return client.post("/api/auth/sign-in", json=body, headers=headers).status_code
+
+
+def test_tries_are_counted_by_the_address_the_host_gives(account, new_client, monkeypatch):
+    # As on Render: Cloudflare, in front of it, names the visitor in a header of its own.
+    monkeypatch.setattr(get_settings(), "client_ip_header", "CF-Connecting-IP")
+    account()
+    client = new_client()
+    visitor = {"CF-Connecting-IP": "198.51.100.7"}
+    for _ in range(10):
+        assert wrong_password(client, **visitor) == 401
+    # Naming another address in X-Forwarded-For, which a visitor can send, changes nothing.
+    assert wrong_password(client, **visitor, **{"X-Forwarded-For": "203.0.113.9"}) == 429
+    # Someone at another address has their own tries.
+    assert wrong_password(client, **{"CF-Connecting-IP": "198.51.100.8"}) == 401
+
+
+def test_that_header_means_nothing_unless_the_host_is_said_to_set_it(account, new_client):
+    account()
+    client = new_client()
+    for _ in range(10):
+        assert wrong_password(client) == 401
+    # On a computer of one's own nothing stands in front, so a visitor could send it.
+    assert wrong_password(client, **{"CF-Connecting-IP": "203.0.113.9"}) == 429
+
+
+def test_only_an_address_in_that_header_is_believed(account, new_client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "client_ip_header", "CF-Connecting-IP")
+    account()
+    client = new_client()
+    # Neither is an address, so both are counted as the same caller.
+    for _ in range(5):
+        assert wrong_password(client, **{"CF-Connecting-IP": "anything-at-all"}) == 401
+        assert wrong_password(client) == 401
+    assert wrong_password(client, **{"CF-Connecting-IP": "something-else"}) == 429
+
+
 def test_an_unknown_address_is_refused_like_a_wrong_password(account, new_client):
     account()
     unknown = sign_in(new_client(), email="nobody@example.com")

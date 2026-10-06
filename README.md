@@ -278,6 +278,7 @@ Copy `.env.example` to `.env` to change any of these.
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | Mail server login (for Resend: `resend` and the API key) |
 | `MAIL_FROM` | empty | Who emails come from, such as `Mikeronn <codes@example.com>` |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-*` headers uvicorn trusts (see Hosting) |
+| `CLIENT_IP_HEADER` | empty | A header in which the host gives the visitor's address and that visitors can't send, such as `CF-Connecting-IP` (see Hosting) |
 | `BIND_ADDRESS` | `127.0.0.1` | Interface the app is published on. `0.0.0.0` allows other devices |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `trades` | Database credentials |
 | `DATABASE_URL` | set by compose | Full connection URL, for hosts with managed Postgres |
@@ -484,7 +485,11 @@ migrations as it starts. Things to know:
 - Render's free plan blocks the usual mail ports (25, 465 and 587). Resend also
   listens on 2587: set `MAIL_BACKEND=smtp`, `SMTP_PORT=2587` and the rest of
   [Email](#email) in the service's Environment tab.
-- `FORWARDED_ALLOW_IPS=*` makes the app believe the visitor's address and HTTPS
-  that Render's proxy reports. With `*`, the address is the first one in
-  `X-Forwarded-For`, so before opening sign-up to the public, check that Render
-  replaces any address a visitor puts there, or the sign-in limits can be dodged.
+- `FORWARDED_ALLOW_IPS=*` makes the app believe Render's proxy that the page
+  came over HTTPS. The visitor's address is not taken from `X-Forwarded-For`,
+  though: Render only adds to what a visitor sent in it, so anyone could name
+  another address and get around the limits on wrong passwords (tried on the
+  live site: it worked). Render stands behind Cloudflare, which gives the
+  address in `CF-Connecting-IP` and refuses requests that bring that header
+  themselves, so `render.yaml` sets `CLIENT_IP_HEADER=CF-Connecting-IP`. On
+  another host, name its own such header, or leave it empty.

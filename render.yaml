@@ -23,6 +23,11 @@ services:
       # they came over HTTPS, which the app only believes with this set.
       - key: FORWARDED_ALLOW_IPS
         value: "*"
+      # Who the visitor is, though, is not taken from X-Forwarded-For: Render
+      # only adds to what the visitor sent there. Cloudflare, in front of
+      # Render, gives the address in a header it lets nobody else send.
+      - key: CLIENT_IP_HEADER
+        value: CF-Connecting-IP
       # Render's free plan blocks the usual mail ports, so codes go to the log.
       - key: MAIL_BACKEND
         value: log

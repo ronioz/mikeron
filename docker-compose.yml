@@ -35,6 +35,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       # Read by uvicorn: which proxies it believes about visitors' addresses and HTTPS.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
     ports:
       # Reachable from this machine only unless BIND_ADDRESS says otherwise.
       - "${BIND_ADDRESS:-127.0.0.1}:8000:8000"
