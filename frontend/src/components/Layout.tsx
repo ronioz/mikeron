@@ -5,7 +5,7 @@ import { ThemeMenu } from "./ThemeMenu";
 export function Layout() {
   return (
     <>
-      <header className="site-header">
+      <header className="site-header app-header">
         <Link className="brand" to="/">
           Mikeronn
         </Link>
@@ -15,12 +15,12 @@ export function Layout() {
           </NavLink>
           <NavLink to="/portfolio">Portfolio</NavLink>
           <NavLink to="/graphs">Graphs</NavLink>
-          {/* About the person rather than the trades: an icon, which styles.css sends to the right. */}
+        </nav>
+        <div className="header-actions">
+          {/* About the person rather than the trades: with the buttons, not among the pages. */}
           <NavLink className="account-link" to="/account" aria-label="Account" title="Account">
             <PersonIcon />
           </NavLink>
-        </nav>
-        <div className="header-actions">
           <ThemeMenu />
           <Link className="button" to="/trades/new">
             Add trade

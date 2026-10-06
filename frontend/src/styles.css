@@ -152,17 +152,27 @@ main {
 
 .site-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  /* What lies between the Account icon, the theme switch and Add trade. */
+  /* What lies between the Account button, the theme switch and Add trade. */
   gap: 8px;
   padding-top: 20px;
   padding-bottom: 20px;
 }
 
+/*
+ * Signed in: the name at the left, the pages in the middle, the buttons at the
+ * right. The two outer columns share what is left over equally, which keeps
+ * the pages in the middle of the page whatever the name and the buttons
+ * measure.
+ */
+.app-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  column-gap: 24px;
+}
+
 .brand {
-  /* With the header's gap, 40px before the navigation. */
-  margin-right: 32px;
+  justify-self: start;
   color: var(--text);
   font-family: var(--font-serif);
   font-size: 2rem;
@@ -170,17 +180,23 @@ main {
   text-decoration: none;
 }
 
-/* Reaches as far as the theme switch, so the Account link can sit beside it. */
+/* The pages, as one switch like the ones on the pages themselves: the page shown is raised. */
 .site-nav {
   display: flex;
-  flex-grow: 1;
-  gap: 24px;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
 
 .site-nav a {
-  padding: 10px 0;
+  flex: 1;
+  min-width: 108px;
+  padding: 9px 20px;
+  border-radius: 999px;
   color: var(--muted);
   font-weight: 500;
+  text-align: center;
   text-decoration: none;
 }
 
@@ -189,32 +205,30 @@ main {
 }
 
 .site-nav a.active {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--line);
   color: var(--text);
-  text-decoration-line: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 8px;
 }
 
 /*
- * The way to the account page: a person in a hairline circle, at the right
- * with the theme switch and Add trade, apart from the pages of trades.
+ * The way to the account page: a person in a soft circle, first of the buttons
+ * at the right, apart from the pages of trades.
  */
-.site-nav .account-link {
+.account-link {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
-  margin-left: auto;
-  padding: 0;
-  border: 1px solid var(--line);
   border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, var(--bg));
+  color: var(--text);
 }
 
-/* On the account page, a ring in the text colour stands in for the line under a page's name. */
-.site-nav .account-link.active {
-  border-color: var(--text);
+/* On the account page, a ring in the text colour: what being raised is for a page's tab. */
+.account-link.active {
+  box-shadow: inset 0 0 0 1px var(--text);
 }
 
 /*
@@ -224,8 +238,7 @@ main {
  * a tap.
  */
 @media (hover: hover) {
-  .site-nav .account-link:hover {
-    border-color: var(--accent);
+  .account-link:hover {
     background: var(--accent);
     color: var(--accent-text);
   }
@@ -235,6 +248,7 @@ main {
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-self: end;
 }
 
 /*
@@ -275,6 +289,11 @@ main {
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.account-link svg {
+  width: 22px;
+  height: 22px;
 }
 
 .theme-button .chevron {
@@ -1662,39 +1681,71 @@ td .swatch {
 }
 
 /*
- * Phones, and any window narrower than the header's one row needs: with three
- * pages in the navigation that is about 680px, or 716px in the moment before
- * the fonts arrive. The same width as where the figures go into one row.
+ * Phones, tablets held upright and narrow windows. Under about 940px the pages
+ * can't sit in the middle with the buttons beside them, so the header takes
+ * two rows: the name with the theme switch and Add trade, and under them the
+ * pages, with the Account button at the right end.
  */
 
-@media (max-width: 719px) {
-  .site-header {
-    column-gap: 12px;
+@media (max-width: 959px) {
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) auto auto 44px;
+    grid-template-areas:
+      "brand theme add add"
+      "nav nav nav account";
+    gap: 8px;
+  }
+
+  /* The buttons take their own places in the header's grid. */
+  .app-header .header-actions {
+    display: contents;
+  }
+
+  /* In the moment before its font arrives the name is wider: on the smallest phones it is cut rather than run under the buttons. */
+  .app-header .brand {
+    grid-area: brand;
+    justify-self: stretch;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .app-header .theme-menu {
+    grid-area: theme;
+  }
+
+  .app-header .button {
+    grid-area: add;
+  }
+
+  .app-header .account-link {
+    grid-area: account;
+  }
+
+  .site-nav {
+    grid-area: nav;
+    max-width: 420px;
+  }
+
+  /* Equal thirds of whatever the row has, down to a 320px phone. */
+  .site-nav a {
+    min-width: 0;
+    padding-right: 4px;
+    padding-left: 4px;
   }
 
   /* About as large as still fits on one line with the theme switch and Add trade on a 320px phone. */
   .brand {
-    margin-right: 0;
     font-size: 1.625rem;
-  }
-
-  /*
-   * A row of its own under the name, with Account at its right end. A little
-   * closer together than on a wide screen, so three pages and the icon fit a
-   * 320px phone.
-   */
-  .site-nav {
-    order: 3;
-    flex-basis: 100%;
-    gap: 20px;
-  }
-
-  .header-actions {
-    margin-left: auto;
   }
 
   .header-actions .button {
     padding: 0 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .site-nav a {
+    font-size: 0.9375rem;
   }
 }
 
