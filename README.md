@@ -46,13 +46,15 @@ remembers your choice in that browser.
   purchase you still hold, opens that form ready to sell the ticker. It shows how
   many shares you hold, and **Sell all** fills them in, so fractional amounts
   such as 0.13304 never have to be typed by hand.
-- **Fill from a screenshot** on that form starts a trade from a screenshot of
-  the report your bank's app shows for a finished trade: choose the picture (on
-  a computer you can also paste it, or drop it on the page) and the form takes
-  the ticker, date, price, shares, broker and whether it was a buy or a sale.
-  Each is marked "from the report" until you change it. The fee, which the
-  reports don't show, is worked out from the bank's tariff. Nothing is saved until you save
-  the form, so check the figures and, if you like, say why you made the trade. See
+- **Add from a screenshot** on that form adds a trade with nothing to fill in,
+  from a screenshot of the report your bank's app shows for a finished trade.
+  Choose the picture (on a computer you can also paste it, or drop it on the
+  page) and the trade is saved at once, with its ticker, date, price, shares,
+  broker and whether it was a buy or a sale. Its page opens and says **Trade
+  has been successfully added**. The fee, which the reports don't show, is
+  worked out from the bank's tariff. A trade that can't be added leaves the
+  journal as it was, and the page says why. Why you made the trade, a forecast
+  and targets are left empty: add them with **Edit**. See
   [Reading a trade's report](#reading-a-trades-report).
 - **Edit** and **Delete** are on every row of the journal and on each trade's
   page. Deleting asks first.
@@ -245,7 +247,7 @@ Things to know:
 
 ## Reading a trade's report
 
-**Fill from a screenshot** on the Add trade form works in two steps, and neither
+**Add from a screenshot** on the Add trade form works in two steps, and neither
 uses an AI service or costs anything:
 
 1. **The picture is turned into words on your own device**, by a text
@@ -253,9 +255,10 @@ uses an AI service or costs anything:
    sent nowhere. The engine's files come from this app, not from a public CDN.
    They are fetched the first time a picture is read: about 6 MB, which the
    browser then keeps. A report takes a second or two.
-2. **The words, and where each one sat, go to the server**, which puts them back
-   into rows and picks the trade out with regular expressions
-   (`app/reports.py`). Nothing is stored.
+2. **The words, and where each one sat, go to the server**
+   (`POST /api/reports/add`), which puts them back into rows, picks the trade
+   out with regular expressions (`app/reports.py`) and saves it. The words
+   themselves aren't kept.
 
 It reads the page each bank's app shows for a finished trade, with the app set
 to Georgian. Take the screenshot with every line of the page in view.
@@ -269,12 +272,12 @@ to Georgian. Take the screenshot with every line of the page in view.
 | Fee | not shown | not shown |
 
 Neither report names its bank: each is known by a row the other doesn't have,
-and the form's Broker is set from that.
+and the trade's broker is set from that.
 
 **Neither shows the fee** either: the bank books it as a transaction of its
-own. So the form's Fee is worked out from the bank's tariff (`app/fees.py`,
-written up in `docs/bank_and_brokerage_commissions.md`) and marked "by the
-bank's tariff", for you to check against what the bank took:
+own. So the trade's fee is worked out from the bank's tariff (`app/fees.py`,
+written up in `docs/bank_and_brokerage_commissions.md`), and the trade's page
+says so when it opens, for you to check against what the bank took:
 
 - **Bank of Georgia:** nothing while the shares you hold there are worth
   $1,000 or less; above that, 0.3% of the trade, no less than $0.50 and no more
@@ -285,6 +288,21 @@ bank's tariff", for you to check against what the bank took:
 
 A tariff changes: when one does, change it in `app/fees.py` and in that
 document.
+
+**Nobody looks the figures over before the trade is saved, so it is only saved
+when the report can be trusted.** Otherwise nothing is added, and the page says
+which of these it was:
+
+- The picture shows no trade.
+- Something a trade needs can't be read: whether it was a buy or a sale, the
+  date, the price, the shares, or the amount they are checked against.
+- The price times the shares doesn't come to the amount, so a figure was
+  misread.
+- The trade is already in your journal: the same kind, ticker, day and shares,
+  at a price within a cent. That catches a screenshot chosen twice, and a trade
+  you typed in earlier. If you really made the same trade twice in a day, type
+  the second one in.
+- It is a sale of more shares than your journal held that day.
 
 Reading a picture exactly is the hard part, and three things make up for the
 engine's mistakes:
@@ -300,14 +318,15 @@ engine's mistakes:
   both, as two guesses, matched up by where they sat in the picture.
 - **The amount settles which guess is right.** The price times the shares has
   to come to the amount the report shows. The first guesses that do are used;
-  if none do, the form says a figure was probably misread.
+  if none do, the trade isn't added.
 
 Things to know:
 
 - Dates are read day first (06.10.2026 is 6 October), as Georgia writes them,
   and the day is the one the report shows.
-- A field the report doesn't show is left as it was, and the form names it.
-- A page left open while the app was updated can't load the reader: the form
+- What a report can't tell is saved as the form starts it: paid with new
+  money, and no reason, forecast or targets. **Edit** changes any of it.
+- A page left open while the app was updated can't load the reader: the page
   says to reload.
 - When a bank changes its report, the rules need changing, not the engine. Add
   a made-up report shaped like the new one to `tests/test_reports.py` (never a
@@ -465,7 +484,7 @@ app/                   backend
     account.py         /api/me: the signed-in account
     trades.py          /api/trades
     portfolio.py       /api/summary, /api/portfolio and /api/graphs
-    reports.py         /api/reports/read: a report's words in, a trade's fields out
+    reports.py         /api/reports/add: a report's words in, its trade saved
 migrations/            Alembic migrations
 tests/                 pytest: accounts, plans, brokers, graphs, reading reports,
                        the banks' fees, isolation between accounts, the upgrades
@@ -486,7 +505,7 @@ frontend/              React + TypeScript app
     chart.ts           which slices the portfolio ring shows, and their colours
     graphs.ts          the graph's spacings, and the amounts and dates along its edges
     useApi.ts          loading data, with periodic refresh
-    components/        layouts, trade form, the button that fills it from a
+    components/        layouts, trade form, the button that adds a trade from a
                        screenshot, broker tags, the emailed-code step,
                        the plan's two fields, ring chart, the line of the
                        portfolio's value, headline figure and stats, the journal's

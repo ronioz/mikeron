@@ -181,27 +181,14 @@ class ReportIn(BaseModel):
     latin: Annotated[list[SeenWord], Field(max_length=1500)] | None = None
 
 
-class TradeReading(BaseModel):
-    """What a broker's report says about one trade, for the trade form to start from.
+class ReportedTrade(BaseModel):
+    """The trade a broker's report showed, now in the journal."""
 
-    A field is None where the report shows nothing readable for it.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-    broker: Broker | None
-    side: Literal["buy", "sell"] | None
-    ticker: str | None
-    price: Decimal | None
-    shares: Decimal | None
-    fee: Decimal | None
-    trade_date: date | None
-    # Whether the price times the shares comes to the amount the report shows:
-    # False means a figure was most likely misread. None when it shows no amount.
-    adds_up: bool | None
-    # True when the report didn't show the fee and `fee` was worked out from the
-    # bank's tariff instead (app/fees.py), to be checked against what the bank took.
-    fee_worked_out: bool = False
+    trade: TradeOut
+    # True when the report didn't show the fee and the trade's was worked out
+    # from the bank's tariff instead (app/fees.py), to be checked against what
+    # the bank took.
+    fee_worked_out: bool
 
 
 class Position(BaseModel):

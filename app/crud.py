@@ -1,9 +1,13 @@
-from sqlalchemy import select
+from decimal import Decimal
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ledger import OversoldError, build_ledger
 from app.models import Trade, User
 from app.schemas import TradeIn
+
+CENT = Decimal("0.01")
 
 
 def list_trades(db: Session, user: User) -> list[Trade]:
@@ -28,6 +32,29 @@ def last_broker(db: Session, user: User) -> str | None:
         select(Trade.broker)
         .where(Trade.user_id == user.id, Trade.broker.is_not(None))
         .order_by(Trade.id.desc())
+        .limit(1)
+    )
+
+
+def same_trade(db: Session, user: User, data: TradeIn) -> Trade | None:
+    """A trade already in the user's journal that this one would repeat.
+
+    The same kind, ticker, day and number of shares, at a price within a cent:
+    a report gives the price to four decimals, and whoever typed the trade in
+    earlier may have kept only the cents. The broker isn't compared, since a
+    trade typed in may name none.
+    """
+    return db.scalar(
+        select(Trade)
+        .where(
+            Trade.user_id == user.id,
+            Trade.side == data.side,
+            Trade.ticker == data.ticker,
+            Trade.trade_date == data.trade_date,
+            Trade.shares == data.shares,
+            func.abs(Trade.price - data.price) < CENT,
+        )
+        .order_by(Trade.id)
         .limit(1)
     )
 

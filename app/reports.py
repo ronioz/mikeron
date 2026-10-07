@@ -3,8 +3,9 @@
 The report is a screenshot, and it stays on the device that took it: there the
 words in it are recognised (frontend/src/ocr.ts), and only those words, with
 where each one sat, arrive here. This module puts them back into rows and
-finds the trade in them with regular expressions. Nothing is stored, and no
-outside service is asked.
+finds the trade in them with regular expressions. It stores nothing and asks
+no outside service: the trade it finds is saved by whoever asked for it
+(app/routers/reports.py), and the words are then forgotten.
 
 The picture is read twice. Knowing Georgian and English at once, the
 recognition gets the Georgian names right but now and then spoils a Latin
@@ -90,6 +91,26 @@ class Reading:
     def found(self) -> bool:
         """Whether this looks like a trade at all."""
         return self.ticker is not None and (self.price is not None or self.shares is not None)
+
+    @property
+    def missing(self) -> list[str]:
+        """What a trade can't be saved without and the report shows nothing readable for, by name.
+
+        The amount is one of them: it is what the price and the shares are
+        checked against, and nobody else checks them before the trade is saved.
+        """
+        needed = {
+            "buy or sell": self.side,
+            "ticker": self.ticker,
+            "date": self.trade_date,
+            "price": self.price,
+            "shares": self.shares,
+        }
+        names = [name for name, value in needed.items() if value is None]
+        # With a price and shares, nothing to check them against means no amount.
+        if self.adds_up is None and self.price is not None and self.shares is not None:
+            names.append("amount")
+        return names
 
 
 def rows(words: Iterable[Word]) -> list[Row]:

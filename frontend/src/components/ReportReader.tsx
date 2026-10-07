@@ -1,46 +1,34 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { api, ApiError } from "../api";
-import { BROKERS } from "../brokers";
-import { formatMoney } from "../format";
-import type { TradeReading } from "../types";
 
-// What a report is expected to show, as the note names anything it didn't.
-const EXPECTED: [keyof TradeReading, string][] = [
-  ["side", "buy or sell"],
-  ["ticker", "ticker"],
-  ["trade_date", "date"],
-  ["price", "price"],
-  ["shares", "shares"],
-  ["fee", "fee"],
-];
-
-function listed(names: string[]): string {
-  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-}
-
-interface Props {
-  /** Told what the report said, to put it into the form. */
-  onRead: (reading: TradeReading) => void;
+/** What a trade's page is told when it was added from a screenshot a moment ago. See TradeDetail. */
+export interface AddedFromReport {
+  /** Which trade, as the page may go on to show another. */
+  id: number;
+  /** The report didn't show the fee: the trade's was worked out from the bank's tariff. */
+  feeWorkedOut: boolean;
 }
 
 /**
- * Starts a trade from a screenshot of the broker's report of it. The picture
- * is read on this device (ocr.ts) and only the words found go to the server,
- * which picks the trade out of them. Nothing is saved: the form still is.
+ * Adds a trade from a screenshot of the broker's report of it, with nothing
+ * to fill in. The picture is read on this device (ocr.ts) and only the words
+ * found go to the server, which picks the trade out of them and saves it. The
+ * trade's page opens and says so. A trade that can't be added leaves the
+ * journal as it was, and the reason is said here.
  */
-export function ReportReader({ onRead }: Props) {
+export function ReportReader() {
+  const navigate = useNavigate();
   const picker = useRef<HTMLInputElement>(null);
   // How far along a reading is, from 0 to 1. Undefined when none is going on.
   const [progress, setProgress] = useState<number>();
-  const [reading, setReading] = useState<TradeReading>();
   const [problem, setProblem] = useState<string>();
   const busy = progress !== undefined;
 
-  async function read(picture: Blob) {
+  async function add(picture: Blob) {
     setProgress(0);
     setProblem(undefined);
-    setReading(undefined);
     try {
       // Fetched only now: the engine is many times the size of the rest of the app.
       const { readPicture } = await import("../ocr").catch(() => {
@@ -48,9 +36,11 @@ export function ReportReader({ onRead }: Props) {
         // version no longer has. So does one that has lost its connection.
         throw new ApiError(0, "The reader couldn't be loaded. Reload the page, then try again.");
       });
-      const found = await api.readReport(await readPicture(picture, setProgress));
-      setReading(found);
-      onRead(found);
+      const seen = await readPicture(picture, setProgress);
+      setProgress(1);
+      const { trade, fee_worked_out: feeWorkedOut } = await api.addReport(seen);
+      const added: AddedFromReport = { id: trade.id, feeWorkedOut };
+      navigate(`/trades/${trade.id}`, { state: { added } });
     } catch (reason) {
       const said = reason instanceof ApiError && Object.keys(reason.fields).length === 0;
       setProblem(said ? reason.message : "That picture couldn't be read. Try a screenshot of the report.");
@@ -59,10 +49,10 @@ export function ReportReader({ onRead }: Props) {
     }
   }
 
-  /** Reads the first picture among the files, and says whether there was one. */
+  /** Adds the trade in the first picture among the files, and says whether there was one. */
   function take(files: FileList | null | undefined): boolean {
     const picture = [...(files ?? [])].find((file) => file.type.startsWith("image/"));
-    if (picture && !busy) void read(picture);
+    if (picture && !busy) void add(picture);
     return picture !== undefined;
   }
 
@@ -91,25 +81,6 @@ export function ReportReader({ onRead }: Props) {
     };
   }, []);
 
-  let note =
-    "A screenshot of the trade's page in your bank's app, with every line of it in view. It is read on this device: the picture is sent nowhere.";
-  if (reading) {
-    const missing = EXPECTED.filter(([field]) => reading[field] === null).map(([, name]) => name);
-    note = reading.broker ? `Filled in from the ${BROKERS[reading.broker].name} report.` : "Filled in from the report.";
-    if (reading.fee_worked_out && reading.fee !== null) {
-      // Neither bank's report of a trade shows what it charged for it.
-      const fee = Number(reading.fee) === 0 ? "there is none" : `it is ${formatMoney(reading.fee)}`;
-      note += ` The fee isn't on it: by the bank's tariff ${fee}, so check that against what the bank took.`;
-    } else if (missing.join() === "fee") {
-      note += " It doesn't show the fee: enter that yourself.";
-    }
-    const unread = missing.filter((name) => name !== "fee" || missing.length > 1);
-    if (unread.length) {
-      note += ` It showed no readable ${listed(unread)}: enter ${unread.length > 1 ? "those" : "that"} yourself.`;
-    }
-    note += " Check each figure against the report before saving.";
-  }
-
   return (
     <div className="report-reader">
       <button
@@ -118,7 +89,7 @@ export function ReportReader({ onRead }: Props) {
         disabled={busy}
         onClick={() => picker.current?.click()}
       >
-        {busy ? `Reading… ${Math.round(progress * 100)}%` : "Fill from a screenshot"}
+        {!busy ? "Add from a screenshot" : progress < 1 ? `Reading… ${Math.round(progress * 100)}%` : "Adding…"}
       </button>
       <input
         ref={picker}
@@ -132,15 +103,16 @@ export function ReportReader({ onRead }: Props) {
           event.target.value = "";
         }}
       />
-      <div role="status">
-        {problem ? <p className="error">{problem}</p> : <p className="hint">{note}</p>}
-        {reading?.adds_up === false && (
-          <p className="error">
-            The price times the shares doesn't come to the amount on the report, so a figure was
-            probably misread.
-          </p>
-        )}
-      </div>
+      <p className="hint">
+        A screenshot of the trade's page in your bank's app, with every line of it in view. The
+        trade is added to your journal at once, with nothing to fill in. It is read on this device:
+        the picture is sent nowhere.
+      </p>
+      {problem && (
+        <p className="notice" role="alert">
+          {problem}
+        </p>
+      )}
     </div>
   );
 }

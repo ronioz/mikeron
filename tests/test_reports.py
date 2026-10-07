@@ -327,40 +327,54 @@ def test_prices_as_reports_write_them(shown: str, amount: str, price: str):
     assert reading.price == Decimal(price)
 
 
-# Over the API.
+# Over the API: the report's trade goes straight into the journal, or the answer says why not.
 
 
-def test_the_api_reads_a_report_for_someone_signed_in(account, new_client):
-    sent = as_sent(bank_of_georgia(), latin=english_only(bank_of_georgia()))
-    assert new_client().post("/api/reports/read", json=sent).status_code == 401
-    response = account().post("/api/reports/read", json=sent)
-    assert response.status_code == 200, response.text
-    assert response.json() == {
-        "broker": "bog",
-        "side": "buy",
-        "ticker": "KO",
-        "price": "61.2345",
-        "shares": "0.50000000",
-        # Not on the report: worked out from the bank's tariff, which charges
-        # nothing while what is held there is worth $1,000 or less.
-        "fee": "0",
-        "fee_worked_out": True,
-        "trade_date": "2026-08-03",
-        "adds_up": True,
-    }
+def add(client, report: list[Word], latin: list[Word] | None = None):
+    return client.post("/api/reports/add", json=as_sent(report, latin))
 
 
-def test_the_api_works_the_fee_out_from_what_is_held_at_the_bank(account):
+def refusal(client, report: list[Word]) -> str:
+    """Why a report's trade wasn't added, having checked that nothing was."""
+    before = client.get("/api/trades").json()
+    response = add(client, report)
+    assert response.status_code in (409, 422), response.text
+    assert client.get("/api/trades").json() == before
+    return response.json()["detail"]
+
+
+def test_a_report_adds_its_trade_for_someone_signed_in(account, new_client):
+    report, latin = bank_of_georgia(), english_only(bank_of_georgia())
+    assert add(new_client(), report, latin).status_code == 401
     ana = account()
-    report = as_sent(bank_of_georgia())
+    response = add(ana, report, latin)
+    assert response.status_code == 201, response.text
+    added = response.json()
+    saved = added["trade"]
+    assert (saved["side"], saved["ticker"], saved["broker"]) == ("buy", "KO", "bog")
+    assert (saved["price"], saved["shares"], saved["trade_date"]) == ("61.2345", "0.50000000", "2026-08-03")
+    # Not on the report: worked out from the bank's tariff, which charges
+    # nothing while what is held there is worth $1,000 or less.
+    assert (saved["fee"], added["fee_worked_out"]) == ("0.0000", True)
+    # What a report can't tell is as the form starts it.
+    assert (saved["thesis"], saved["forecast"], saved["paid_from_cash"]) == ("", "", False)
+    assert (saved["take_profit"], saved["stop_loss"]) == (None, None)
+    # It is in the journal, as that trade.
+    assert [listed["id"] for listed in ana.get("/api/trades").json()] == [saved["id"]]
+    assert ana.get(f"/api/trades/{saved['id']}").json()["ticker"] == "KO"
+
+
+def test_the_fee_is_worked_out_from_what_is_held_at_the_bank(account):
+    ana = account()
     # Two shares of SPY at Bank of Georgia, worth $1,200 at the tests' price of $600.
     assert ana.post("/api/trades", json=trade("SPY", "2", "450", "2026-07-01", broker="bog")).status_code == 201
-    reading = ana.post("/api/reports/read", json=report).json()
+    added = add(ana, bank_of_georgia()).json()
     # 0.3% of $30.62 is nine cents: the least the bank takes is fifty.
-    assert (reading["fee"], reading["fee_worked_out"]) == ("0.50", True)
+    assert (added["trade"]["fee"], added["fee_worked_out"]) == ("0.5000", True)
+    assert added["trade"]["net_amount"] == "31.117250000000"
     # A bigger trade pays the 0.3%.
     bigger = bank_of_georgia("Buy 10 shares of KO at 61.2345 FULL fill", shares="10", amount="-612.35 $")
-    assert ana.post("/api/reports/read", json=as_sent(bigger)).json()["fee"] == "1.84"
+    assert add(ana, bigger).json()["trade"]["fee"] == "1.8400"
 
 
 def test_only_what_was_held_by_the_day_of_the_trade_counts(account):
@@ -368,33 +382,124 @@ def test_only_what_was_held_by_the_day_of_the_trade_counts(account):
     # Bought a month after the trade in the report, and at the other bank.
     assert ana.post("/api/trades", json=trade("SPY", "2", "450", "2026-09-01", broker="bog")).status_code == 201
     assert ana.post("/api/trades", json=trade("SPY", "2", "450", "2026-07-01", broker="tbc")).status_code == 201
-    assert ana.post("/api/reports/read", json=as_sent(bank_of_georgia())).json()["fee"] == "0"
+    assert add(ana, bank_of_georgia()).json()["trade"]["fee"] == "0.0000"
 
 
 def test_a_fee_the_report_shows_is_taken_as_it_is(account):
-    reading = account().post("/api/reports/read", json=as_sent(PLAIN)).json()
-    assert (reading["ticker"], reading["fee"], reading["fee_worked_out"]) == ("MU", "0.0900", False)
+    added = add(account(), PLAIN).json()
+    assert (added["trade"]["ticker"], added["trade"]["fee"], added["fee_worked_out"]) == ("MU", "0.0900", False)
+    # No row says which bank the report is from, so the trade names none.
+    assert added["trade"]["broker"] is None
 
 
-def test_the_api_reads_the_other_banks_report_too(account):
-    sent = as_sent(tbc_bank(kind="გაყიდვა", amount="+60.10 $"), latin=english_only(tbc_bank(amount="+60.10 $")))
-    reading = account().post("/api/reports/read", json=sent).json()
-    assert (reading["broker"], reading["side"], reading["ticker"]) == ("tbc", "sell", "PEP")
-    assert (reading["price"], reading["trade_date"]) == ("150.2500", "2026-08-14")
-    # TBC's app charges nothing for a trade.
-    assert (reading["fee"], reading["fee_worked_out"]) == ("0", True)
-
-
-def test_the_api_says_so_when_a_picture_shows_no_trade(account):
+def test_the_other_banks_sale_is_added_too(account):
     ana = account()
-    response = ana.post("/api/reports/read", json=as_sent(under("Happy birthday!")))
-    assert response.status_code == 422
-    assert response.json()["detail"].startswith("No trade was found")
-    # Reading saves nothing.
-    assert ana.post("/api/reports/read", json=as_sent(bank_of_georgia())).status_code == 200
-    assert ana.get("/api/trades").json() == []
+    assert ana.post("/api/trades", json=trade("PEP", "1", "140", "2026-08-01", broker="tbc")).status_code == 201
+    sale = tbc_bank(kind="გაყიდვა", amount="+60.10 $")
+    added = add(ana, sale, english_only(sale)).json()
+    saved = added["trade"]
+    assert (saved["broker"], saved["side"], saved["ticker"]) == ("tbc", "sell", "PEP")
+    assert (saved["price"], saved["trade_date"]) == ("150.2500", "2026-08-14")
+    # TBC's app charges nothing for a trade.
+    assert (saved["fee"], added["fee_worked_out"]) == ("0.0000", True)
+    # A sale's gain is worked out like any other's: 0.4 of a share bought at $140.
+    assert saved["realized_gain"] == "4.100000000000"
 
 
-def test_the_api_refuses_more_words_than_a_report_holds(account):
+def test_a_picture_that_shows_no_trade_adds_nothing(account):
+    assert refusal(account(), under("Happy birthday!")).startswith("No trade was found")
+
+
+def test_a_report_with_something_unreadable_adds_nothing(account):
+    ana = account()
+    # No sentence and no sign on the amount: nothing says whether it was bought or sold.
+    unsigned = bank_of_georgia("Bvy O.5 shares", amount="30.62 $")
+    assert refusal(ana, unsigned) == (
+        "The report shows no readable buy or sell, so the trade wasn't added."
+    )
+    cut_off = beside(("Instrument", "MU"), ("Quantity", "2"))
+    assert refusal(ana, cut_off) == (
+        "The report shows no readable buy or sell, date and price, so the trade wasn't added."
+    )
+
+
+def test_figures_that_cant_be_checked_against_an_amount_add_nothing(account):
+    # Everything but the amount, as when the screenshot was cut short.
+    report = beside(("Instrument", "MU"), ("Side", "Buy"), ("Quantity", "2"), ("Price", "$90.00"), ("Date", "06.10.2026"))
+    assert refusal(account(), report) == "The report shows no readable amount, so the trade wasn't added."
+
+
+def test_figures_that_dont_come_to_the_amount_add_nothing(account):
+    wrong = bank_of_georgia("Buy 0.6 shares of KO at 61.2345 FULL fill", shares="0.6")
+    assert "a figure was probably misread" in refusal(account(), wrong)
+
+
+def test_the_same_report_isnt_added_twice(account):
+    ana = account()
+    assert add(ana, bank_of_georgia()).status_code == 201
+    again = add(ana, bank_of_georgia())
+    assert again.status_code == 409
+    assert again.json()["detail"] == (
+        "That trade is already in your journal: the purchase of 0.5 KO on 2026-08-03. Nothing was added."
+    )
+    assert len(ana.get("/api/trades").json()) == 1
+
+
+def test_a_trade_typed_in_earlier_isnt_added_again(account):
+    ana = account()
+    # Typed from the report's row, which has the price to the cent, and with no broker named.
+    assert ana.post("/api/trades", json=trade("KO", "0.5", "61.23", "2026-08-03")).status_code == 201
+    assert refusal(ana, bank_of_georgia()).startswith("That trade is already in your journal")
+    # Another day's, another count of shares or another price is another trade.
+    for other in [
+        trade("PEP", "0.4", "150.25", "2026-08-13"),
+        trade("PEP", "0.3", "150.25", "2026-08-14"),
+        trade("PEP", "0.4", "150.26", "2026-08-14"),
+    ]:
+        assert ana.post("/api/trades", json=other).status_code == 201
+    assert add(ana, tbc_bank()).status_code == 201
+
+
+def test_someone_elses_trade_doesnt_stand_in_the_way(account):
+    assert add(account("ana@example.com"), bank_of_georgia()).status_code == 201
+    assert add(account("ben@example.com", "ben-password-1"), bank_of_georgia()).status_code == 201
+
+
+def test_a_sale_of_shares_that_werent_held_adds_nothing(account):
+    ana = account()
+    sale = tbc_bank(kind="გაყიდვა", amount="+60.10 $")
+    assert refusal(ana, sale) == (
+        "The report is of a sale of 0.4 PEP on 2026-08-14, but you held none then. Add the purchase first."
+    )
+    assert ana.post("/api/trades", json=trade("PEP", "0.1", "140", "2026-08-01")).status_code == 201
+    assert "but you only held 0.1 then" in refusal(ana, sale)
+
+
+def test_a_sale_that_would_leave_a_later_one_short_adds_nothing(account):
+    ana = account()
+    assert ana.post("/api/trades", json=trade("PEP", "0.5", "140", "2026-08-01")).status_code == 201
+    assert ana.post("/api/trades", json=trade("PEP", "0.5", "155", "2026-09-01", side="sell")).status_code == 201
+    assert refusal(ana, tbc_bank(kind="გაყიდვა", amount="+60.10 $")) == (
+        "That would leave your sale of 0.5 PEP on 2026-09-01 without enough shares. "
+        "Change or delete that sale first."
+    )
+
+
+def test_figures_no_trade_could_have_add_nothing(account):
+    # More shares than a trade is stored with, though they do come to the amount.
+    huge = beside(
+        ("Instrument", "MU"),
+        ("Side", "Buy"),
+        ("Quantity", "12345678901"),
+        ("Price", "$1.00"),
+        ("Amount", "$12345678901.00"),
+        ("Date", "06.10.2026"),
+    )
+    assert refusal(account(), huge) == (
+        "The figures read from the report can't be saved as a trade, so nothing was added."
+    )
+
+
+def test_more_words_than_a_report_holds_are_refused(account):
     flood = [Word("MU", 0, 0, 10, 10)] * 1501
-    assert account().post("/api/reports/read", json=as_sent(flood)).status_code == 422
+    assert add(account(), flood).status_code == 422

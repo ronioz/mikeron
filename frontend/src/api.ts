@@ -6,11 +6,11 @@ import type {
   Graphs,
   PlanPeriod,
   Portfolio,
+  ReportedTrade,
   SignedIn,
   Summary,
   Trade,
   TradeInput,
-  TradeReading,
 } from "./types";
 
 /** A failed API call. `fields` holds one message per rejected form field. */
@@ -85,8 +85,8 @@ export const api = {
   createTrade: (input: TradeInput) => request<Trade>("/trades", json("POST", input)),
   updateTrade: (id: number, input: TradeInput) => request<Trade>(`/trades/${id}`, json("PUT", input)),
   deleteTrade: (id: number) => request<void>(`/trades/${id}`, { method: "DELETE" }),
-  /** Finds the trade in the words of a broker's report. Saves nothing. */
-  readReport: (seen: Seen) => request<TradeReading>("/reports/read", json("POST", seen)),
+  /** Finds the trade in the words of a broker's report and adds it to the journal. */
+  addReport: (seen: Seen) => request<ReportedTrade>("/reports/add", json("POST", seen)),
   getSummary: () => request<Summary>("/summary"),
   getPortfolio: () => request<Portfolio>("/portfolio"),
   getGraphs: () => request<Graphs>("/graphs"),

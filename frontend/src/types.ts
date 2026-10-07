@@ -76,21 +76,10 @@ export interface Trade {
   broker: Broker | null;
 }
 
-/**
- * What a broker's report says about one trade, read from a screenshot of it
- * (see ocr.ts). Null where the report shows nothing readable.
- */
-export interface TradeReading {
-  broker: Broker | null;
-  side: Side | null;
-  ticker: string | null;
-  price: Decimal | null;
-  shares: Decimal | null;
-  fee: Decimal | null;
-  trade_date: string | null;
-  /** Whether price times shares comes to the amount the report shows. Null when it shows none. */
-  adds_up: boolean | null;
-  /** True when the report didn't show the fee and it was worked out from the bank's tariff. */
+/** The trade a broker's report showed, added to the journal from a screenshot of it (see ocr.ts). */
+export interface ReportedTrade {
+  trade: Trade;
+  /** True when the report didn't show the fee and the trade's was worked out from the bank's tariff. */
   fee_worked_out: boolean;
 }
 

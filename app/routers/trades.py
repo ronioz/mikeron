@@ -14,25 +14,27 @@ from app.schemas import TradeIn, TradeOut
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
+# The three helpers below also serve app/routers/reports.py, which saves a
+# trade too: the one a broker's report shows.
 
-def _valued(trade: Trade, user: User, db: Session, quotes: QuoteCache) -> TradeOut:
+
+def valued(trade: Trade, user: User, db: Session, quotes: QuoteCache) -> TradeOut:
     # What happened to a purchase depends on the later sales of its ticker, and
     # the cash it could use on every earlier sale, so the whole journal counts.
     # Only this trade's price is needed, though.
-    every = crud.list_trades(db, user)
-    valued = value_trades(every, quotes.get(db, [trade.ticker]))
-    return next(out for out in valued if out.id == trade.id)
+    every = value_trades(crud.list_trades(db, user), quotes.get(db, [trade.ticker]))
+    return next(out for out in every if out.id == trade.id)
 
 
-def _plain(number: Decimal) -> str:
+def plain(number: Decimal) -> str:
     return f"{number.normalize():f}"
 
 
-def _not_enough_shares(problem: OversoldError) -> HTTPException:
+def not_enough_shares(problem: OversoldError) -> HTTPException:
     if problem.direct:
         # The sale being saved is the one that doesn't fit, so the message
         # belongs next to its share count in the form.
-        held = f"only held {_plain(problem.held)}" if problem.held > 0 else "held no"
+        held = f"only held {plain(problem.held)}" if problem.held > 0 else "held no"
         return HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=[
@@ -46,7 +48,7 @@ def _not_enough_shares(problem: OversoldError) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"That would leave your sale of {_plain(problem.wanted)} {problem.ticker} "
+            f"That would leave your sale of {plain(problem.wanted)} {problem.ticker} "
             f"on {problem.on} without enough shares. Change or delete that sale first."
         ),
     )
@@ -63,13 +65,13 @@ def create_trade(data: TradeIn, user: CurrentUser, db: DbSession, quotes: Quotes
     try:
         trade = crud.create_trade(db, user, data)
     except OversoldError as problem:
-        raise _not_enough_shares(problem) from problem
-    return _valued(trade, user, db, quotes)
+        raise not_enough_shares(problem) from problem
+    return valued(trade, user, db, quotes)
 
 
 @router.get("/{trade_id}")
 def get_trade(trade: CurrentTrade, user: CurrentUser, db: DbSession, quotes: Quotes) -> TradeOut:
-    return _valued(trade, user, db, quotes)
+    return valued(trade, user, db, quotes)
 
 
 @router.put("/{trade_id}")
@@ -79,8 +81,8 @@ def update_trade(
     try:
         trade = crud.update_trade(db, trade, data)
     except OversoldError as problem:
-        raise _not_enough_shares(problem) from problem
-    return _valued(trade, user, db, quotes)
+        raise not_enough_shares(problem) from problem
+    return valued(trade, user, db, quotes)
 
 
 @router.delete("/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -88,4 +90,4 @@ def delete_trade(trade: CurrentTrade, db: DbSession) -> None:
     try:
         crud.delete_trade(db, trade)
     except OversoldError as problem:
-        raise _not_enough_shares(problem) from problem
+        raise not_enough_shares(problem) from problem

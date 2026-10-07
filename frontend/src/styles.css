@@ -415,6 +415,21 @@ small.loss {
   margin: 16px 0 0;
 }
 
+/*
+ * Good news, such as a trade added from a screenshot: the same box in the
+ * page's own greys, as green is kept for money.
+ */
+.notice.done {
+  border-color: var(--line);
+  background: var(--raised);
+  color: var(--text-soft);
+}
+
+.notice.done strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Read out by screen readers, but not drawn. */
 .visually-hidden {
   position: absolute;
@@ -1103,7 +1118,10 @@ a.ticker:hover {
   margin-top: 16px;
 }
 
-/* Starting from a screenshot of the broker's report: the button, and what came of it. */
+/*
+ * Adding the trade from a screenshot of the broker's report instead: the
+ * button with what it does beside it, and under them why a trade wasn't added.
+ */
 .report-reader {
   display: flex;
   flex-wrap: wrap;
@@ -1113,11 +1131,13 @@ a.ticker:hover {
   border-bottom: 1px solid var(--line);
 }
 
-.report-reader > div {
-  display: flex;
+.report-reader .hint {
   flex: 1 1 260px;
-  flex-direction: column;
-  gap: 4px;
+}
+
+.report-reader .notice {
+  flex: 1 1 100%;
+  margin: 0;
 }
 
 .field-row {
