@@ -1,6 +1,6 @@
 from collections.abc import Hashable
 from datetime import datetime
-from ipaddress import ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -56,7 +56,7 @@ def reject_cross_site_writes(request: Request) -> None:
 
 
 def client_ip(request: Request) -> str:
-    """The network address a request came from, which the attempt limits count by.
+    """Where a request came from, as the attempt limits count it.
 
     Behind a reverse proxy that is the proxy's own address, unless the proxy
     passes the visitor's on. X-Forwarded-For does that (uvicorn reads it when
@@ -69,11 +69,29 @@ def client_ip(request: Request) -> str:
     if header:
         try:
             # Read as an address, so nothing else can become a key to count by.
-            return str(ip_address(request.headers.get(header, "").strip()))
+            return _counted_as(ip_address(request.headers.get(header, "").strip()))
         except ValueError:
             # Not sent, as on the host's own health checks from inside.
             pass
-    return request.client.host if request.client else "unknown"
+    host = request.client.host if request.client else "unknown"
+    try:
+        return _counted_as(ip_address(host))
+    except ValueError:
+        return host
+
+
+def _counted_as(address: IPv4Address | IPv6Address) -> str:
+    """What the limits count an address under.
+
+    An IPv4 address is one connection. With IPv6 a connection is given a whole
+    block to send from, 2^64 addresses at the least, so a block is counted as
+    one: otherwise every address in it would bring tries of its own.
+    """
+    if isinstance(address, IPv4Address):
+        return str(address)
+    if address.ipv4_mapped is not None:
+        return str(address.ipv4_mapped)
+    return f"{IPv6Address(int(address) >> 64 << 64)}/64"
 
 
 def check_limit(limit: Limit, key: Hashable) -> None:

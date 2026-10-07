@@ -63,6 +63,7 @@ export function TradeNew() {
               broker: asked ?? last_broker ?? "",
             }}
             cancelTo="/"
+            readsReport
             holdings={portfolio.data?.positions}
             parts={portfolio.data?.by_broker}
             cash={portfolio.data?.cash}

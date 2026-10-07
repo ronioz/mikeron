@@ -92,6 +92,22 @@ def test_brokers_are_kept_and_checked(account):
     assert blank.json()["broker"] is None
 
 
+def test_a_trade_needs_no_reason(account):
+    ana = account(ANA)
+    without = trade("SPY", "1", "500", "2026-09-01")
+    del without["thesis"]
+    created = ana.post("/api/trades", json=without)
+    assert created.status_code == 201
+    assert created.json()["thesis"] == ""
+    # Only spaces is the same as nothing written.
+    blank = ana.post("/api/trades", json=trade("SPY", "1", "500", "2026-09-01", thesis="  \n "))
+    assert blank.json()["thesis"] == ""
+    # A reason can be taken off a trade that had one.
+    written = ana.post("/api/trades", json=trade("MU", "1", "90", "2026-09-02")).json()
+    cleared = ana.put(f"/api/trades/{written['id']}", json={**without, "ticker": "MU"})
+    assert cleared.json()["thesis"] == ""
+
+
 def test_a_new_trade_starts_with_the_last_broker_used(account):
     ana, ben = account(ANA), account(BEN)
     assert ana.get("/api/me").json()["last_broker"] is None

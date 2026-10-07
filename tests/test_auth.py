@@ -164,6 +164,25 @@ def test_tries_are_counted_by_the_address_the_host_gives(account, new_client, mo
     assert wrong_password(client, **{"CF-Connecting-IP": "198.51.100.8"}) == 401
 
 
+def test_an_ipv6_connection_is_counted_as_one_however_many_addresses_it_sends_from(
+    account, new_client, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "client_ip_header", "CF-Connecting-IP")
+    account()
+    client = new_client()
+    # Ten tries, each from another address of the block one connection is given.
+    for last in range(10):
+        assert wrong_password(client, **{"CF-Connecting-IP": f"2001:db8:1:2::{last + 1:x}"}) == 401
+    assert wrong_password(client, **{"CF-Connecting-IP": "2001:db8:1:2:ffff:ffff:ffff:ffff"}) == 429
+    # The block next to it is somebody else.
+    assert wrong_password(client, **{"CF-Connecting-IP": "2001:db8:1:3::1"}) == 401
+    # An IPv4 address written the IPv6 way is that IPv4 address.
+    for _ in range(9):
+        assert wrong_password(client, **{"CF-Connecting-IP": "::ffff:198.51.100.7"}) == 401
+    assert wrong_password(client, **{"CF-Connecting-IP": "198.51.100.7"}) == 401
+    assert wrong_password(client, **{"CF-Connecting-IP": "198.51.100.7"}) == 429
+
+
 def test_that_header_means_nothing_unless_the_host_is_said_to_set_it(account, new_client):
     account()
     client = new_client()

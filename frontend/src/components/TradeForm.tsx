@@ -12,9 +12,11 @@ import type {
   Side,
   Trade,
   TradeInput,
+  TradeReading,
 } from "../types";
 import { BrokerBadge } from "./BrokerBadge";
 import { Field } from "./Field";
+import { ReportReader } from "./ReportReader";
 
 /** Every field typed into: all but the Paid with switch. */
 type TextField = Exclude<keyof TradeInput, "paid_from_cash">;
@@ -52,6 +54,20 @@ function toPayload(values: TradeInput): TradeInput {
     : input;
 }
 
+/** What a broker's report said, as the form holds it. A field the report didn't show is left out. */
+function fromReport(reading: TradeReading): Partial<TradeInput> {
+  const found: Partial<TradeInput> = {};
+  if (reading.side) found.side = reading.side;
+  if (reading.ticker) found.ticker = reading.ticker;
+  if (reading.trade_date) found.trade_date = reading.trade_date;
+  if (reading.broker) found.broker = reading.broker;
+  if (reading.price !== null) found.price = trimZeros(reading.price);
+  if (reading.shares !== null) found.shares = trimZeros(reading.shares);
+  // A report saying there was no fee leaves the field empty, like a saved trade without one.
+  if (reading.fee !== null) found.fee = Number(reading.fee) === 0 ? "" : trimZeros(reading.fee);
+  return found;
+}
+
 const SIDES: { side: Side; label: string }[] = [
   { side: "buy", label: "Buy" },
   { side: "sell", label: "Sell" },
@@ -72,6 +88,8 @@ interface Props {
   cancelTo: string;
   /** Where to go after saving. The saved trade's page when not given. */
   returnTo?: string;
+  /** Offer to fill the form in from a screenshot of the broker's report. For a new trade. */
+  readsReport?: boolean;
   /** What is held now, to help fill in a sale. Leave out when editing a saved trade. */
   holdings?: Position[];
   /** The same broker by broker, so a sale is filled in with what its own broker holds. */
@@ -86,6 +104,7 @@ export function TradeForm({
   initial,
   cancelTo,
   returnTo,
+  readsReport,
   holdings,
   parts,
   cash,
@@ -96,6 +115,8 @@ export function TradeForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string>();
   const [saving, setSaving] = useState(false);
+  // Where each field a report filled in got its value, until it is changed by hand.
+  const [read, setRead] = useState<Readonly<Record<string, string>>>({});
   const selling = values.side === "sell";
 
   async function submit(event: FormEvent) {
@@ -114,8 +135,22 @@ export function TradeForm({
     }
   }
 
-  const set = (name: TextField, value: string) =>
+  const set = (name: TextField, value: string) => {
     setValues((current) => ({ ...current, [name]: value }));
+    setRead(({ [name]: _changed, ...rest }) => rest);
+  };
+
+  const fill = (reading: TradeReading) => {
+    const found = fromReport(reading);
+    setValues((current) => ({ ...current, ...found }));
+    const sources = Object.fromEntries(Object.keys(found).map((field) => [field, "from the report"]));
+    // The banks' reports don't show the fee: it is what the bank's tariff makes it.
+    if (reading.fee_worked_out) sources.fee = "by the bank's tariff";
+    setRead(sources);
+    setErrors({});
+  };
+  // Says beside its label where a value came from, so it gets checked.
+  const noted = (name: TextField) => read[name];
 
   // Wires an input to its entry in `values`.
   const bind = (name: TextField) => ({
@@ -182,6 +217,8 @@ export function TradeForm({
       </div>
 
       <form className="trade-form" onSubmit={submit}>
+        {readsReport && <ReportReader onRead={fill} />}
+
         <fieldset className="segmented">
           <legend className="visually-hidden">Buy or sell</legend>
           {SIDES.map(({ side, label }) => (
@@ -199,7 +236,7 @@ export function TradeForm({
         </fieldset>
 
         <div className="field-row">
-          <Field name="ticker" label="Ticker" error={errors.ticker}>
+          <Field name="ticker" label="Ticker" note={noted("ticker")} error={errors.ticker}>
             <input
               {...bind("ticker")}
               className="upper"
@@ -220,7 +257,7 @@ export function TradeForm({
               </datalist>
             )}
           </Field>
-          <Field name="trade_date" label="Date" error={errors.trade_date}>
+          <Field name="trade_date" label="Date" note={noted("trade_date")} error={errors.trade_date}>
             <input {...bind("trade_date")} type="date" required />
           </Field>
         </div>
@@ -252,10 +289,21 @@ export function TradeForm({
         </fieldset>
 
         <div className="field-row">
-          <Field name="price" label={selling ? "Sell price ($)" : "Buy price ($)"} error={errors.price}>
+          <Field
+            name="price"
+            label={selling ? "Sell price ($)" : "Buy price ($)"}
+            note={noted("price")}
+            error={errors.price}
+          >
             <input {...bind("price")} {...NUMBER} required />
           </Field>
-          <Field name="shares" label="Shares" hint={sharesHint} error={errors.shares}>
+          <Field
+            name="shares"
+            label="Shares"
+            note={noted("shares")}
+            hint={sharesHint}
+            error={errors.shares}
+          >
             <input
               {...bind("shares")}
               {...NUMBER}
@@ -268,6 +316,7 @@ export function TradeForm({
             name="fee"
             label="Fee ($)"
             optional
+            note={noted("fee")}
             hint={
               selling
                 ? "Your broker's commission, taken from what the sale brings in"
@@ -326,9 +375,10 @@ export function TradeForm({
         <Field
           name="thesis"
           label={selling ? "Why did you sell?" : "Why did you buy?"}
+          optional
           error={errors.thesis}
         >
-          <textarea {...bind("thesis")} rows={5} maxLength={5000} required />
+          <textarea {...bind("thesis")} rows={5} maxLength={5000} />
         </Field>
 
         {!selling && (

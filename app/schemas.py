@@ -60,8 +60,8 @@ class TradeIn(BaseModel):
     price: Price
     shares: Shares
     trade_date: date
-    # Why the trade was made: the reason for buying, or for selling.
-    thesis: Annotated[str, Field(min_length=1, max_length=5000)]
+    # Why the trade was made: the reason for buying, or for selling. Can be left empty.
+    thesis: Annotated[str, Field(max_length=5000)] = ""
     forecast: Annotated[str, Field(max_length=5000)] = ""
     take_profit: Price | None = None
     stop_loss: Price | None = None
@@ -158,6 +158,50 @@ class TradeOut(TradeIn):
     # was new money. Can be less than the cost even when paid_from_cash is set,
     # if there wasn't that much cash on the purchase's date.
     cash_used: Decimal | None = None
+
+
+class SeenWord(BaseModel):
+    """A word read in a picture, and where: in pixels from its top left corner."""
+
+    text: Annotated[str, Field(min_length=1, max_length=80)]
+    left: Annotated[float, Field(ge=0, le=100_000)]
+    top: Annotated[float, Field(ge=0, le=100_000)]
+    right: Annotated[float, Field(ge=0, le=100_000)]
+    bottom: Annotated[float, Field(ge=0, le=100_000)]
+
+
+class ReportIn(BaseModel):
+    """The words of a broker's trade report, as recognised on the device that holds the picture."""
+
+    # The picture read knowing Georgian and English. A report is a screenful: a
+    # few dozen words, a few hundred at the very most.
+    words: Annotated[list[SeenWord], Field(max_length=1500)]
+    # The same picture read knowing English only, which gets figures right that
+    # the first reading can spoil. Without it, figures come from `words` too.
+    latin: Annotated[list[SeenWord], Field(max_length=1500)] | None = None
+
+
+class TradeReading(BaseModel):
+    """What a broker's report says about one trade, for the trade form to start from.
+
+    A field is None where the report shows nothing readable for it.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    broker: Broker | None
+    side: Literal["buy", "sell"] | None
+    ticker: str | None
+    price: Decimal | None
+    shares: Decimal | None
+    fee: Decimal | None
+    trade_date: date | None
+    # Whether the price times the shares comes to the amount the report shows:
+    # False means a figure was most likely misread. None when it shows no amount.
+    adds_up: bool | None
+    # True when the report didn't show the fee and `fee` was worked out from the
+    # bank's tariff instead (app/fees.py), to be checked against what the bank took.
+    fee_worked_out: bool = False
 
 
 class Position(BaseModel):

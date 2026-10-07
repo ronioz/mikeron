@@ -41,10 +41,19 @@ remembers your choice in that browser.
 
 - **Add trade** opens a form with a Buy / Sell switch. A sale asks for the sell
   price, the shares sold and why you sold; it has no forecast or target prices.
+  The reason is optional, for a purchase as for a sale.
 - **Sell** next to each holding on the Portfolio page, and on the page of a
   purchase you still hold, opens that form ready to sell the ticker. It shows how
   many shares you hold, and **Sell all** fills them in, so fractional amounts
   such as 0.13304 never have to be typed by hand.
+- **Fill from a screenshot** on that form starts a trade from a screenshot of
+  the report your bank's app shows for a finished trade: choose the picture (on
+  a computer you can also paste it, or drop it on the page) and the form takes
+  the ticker, date, price, shares, broker and whether it was a buy or a sale.
+  Each is marked "from the report" until you change it. The fee, which the
+  reports don't show, is worked out from the bank's tariff. Nothing is saved until you save
+  the form, so check the figures and, if you like, say why you made the trade. See
+  [Reading a trade's report](#reading-a-trades-report).
 - **Edit** and **Delete** are on every row of the journal and on each trade's
   page. Deleting asks first.
 - **Cash from sales.** The money from a sale goes into **Cash**. A purchase's
@@ -234,6 +243,77 @@ Things to know:
   page says so. If Twelve Data can't be reached, the closes fetched earlier
   stay in use.
 
+## Reading a trade's report
+
+**Fill from a screenshot** on the Add trade form works in two steps, and neither
+uses an AI service or costs anything:
+
+1. **The picture is turned into words on your own device**, by a text
+   recognition engine (tesseract.js) running in the browser. The picture is
+   sent nowhere. The engine's files come from this app, not from a public CDN.
+   They are fetched the first time a picture is read: about 6 MB, which the
+   browser then keeps. A report takes a second or two.
+2. **The words, and where each one sat, go to the server**, which puts them back
+   into rows and picks the trade out with regular expressions
+   (`app/reports.py`). Nothing is stored.
+
+It reads the page each bank's app shows for a finished trade, with the app set
+to Georgian. Take the screenshot with every line of the page in view.
+
+| | Bank of Georgia | TBC Bank |
+| --- | --- | --- |
+| Laid out as | each name with its figure under it | each name with its figure beside it |
+| Buy or sale | an English sentence in the comment: "Buy 0.5 shares of KO at 61.2345 FULL fill" | a row of its own, and a + or − on the amount |
+| Price | to four decimals in that sentence, to the cent in its row | to the cent |
+| Date | "03 აგვ, 2026" | "2026, 14 აგვისტო, 11:20:45" |
+| Fee | not shown | not shown |
+
+Neither report names its bank: each is known by a row the other doesn't have,
+and the form's Broker is set from that.
+
+**Neither shows the fee** either: the bank books it as a transaction of its
+own. So the form's Fee is worked out from the bank's tariff (`app/fees.py`,
+written up in `docs/bank_and_brokerage_commissions.md`) and marked "by the
+bank's tariff", for you to check against what the bank took:
+
+- **Bank of Georgia:** nothing while the shares you hold there are worth
+  $1,000 or less; above that, 0.3% of the trade, no less than $0.50 and no more
+  than $40. What you hold is taken from your journal: the trades at Bank of
+  Georgia up to the report's day, at live prices, or at what they cost where
+  there is no live price.
+- **TBC Bank:** nothing. Its app charges no fee for a trade.
+
+A tariff changes: when one does, change it in `app/fees.py` and in that
+document.
+
+Reading a picture exactly is the hard part, and three things make up for the
+engine's mistakes:
+
+- **A dark picture is turned into its negative first.** An app in its dark
+  colours shows light writing on a dark ground, which the engine misreads far
+  more often.
+- **The picture is read twice.** Knowing Georgian and English together, the
+  engine gets the Georgian right but now and then spoils a Latin letter or a
+  digit: a "$" comes out as "%", a 5 as a 6. Knowing English only, it gets no
+  Georgian and is better with figures, though it can lose a decimal point. So
+  names and months come from the first reading, and each figure is taken from
+  both, as two guesses, matched up by where they sat in the picture.
+- **The amount settles which guess is right.** The price times the shares has
+  to come to the amount the report shows. The first guesses that do are used;
+  if none do, the form says a figure was probably misread.
+
+Things to know:
+
+- Dates are read day first (06.10.2026 is 6 October), as Georgia writes them,
+  and the day is the one the report shows.
+- A field the report doesn't show is left as it was, and the form names it.
+- A page left open while the app was updated can't load the reader: the form
+  says to reload.
+- When a bank changes its report, the rules need changing, not the engine. Add
+  a made-up report shaped like the new one to `tests/test_reports.py` (never a
+  real one: it shows a real person's money), then change the rules until it is
+  read.
+
 ## Email
 
 With the default `MAIL_BACKEND=log`, emails aren't sent: each one, code
@@ -373,6 +453,9 @@ app/                   backend
   cash.py              the cash sales leave, and which purchases reused it
   prices.py            live prices: Finnhub client and the cache in front of it
   closes.py            closing prices: Twelve Data client and the cache in front of it
+  reports.py           reading a broker's trade report: the rules that find the
+                       trade in the words of a screenshot
+  fees.py              what each bank charges for a trade, by its tariff
   portfolio.py         the arithmetic: values, gains, positions, totals
   graphs.py            the arithmetic: what was held and what it was worth at each
                        close, a point per day, week, month and year
@@ -382,9 +465,10 @@ app/                   backend
     account.py         /api/me: the signed-in account
     trades.py          /api/trades
     portfolio.py       /api/summary, /api/portfolio and /api/graphs
+    reports.py         /api/reports/read: a report's words in, a trade's fields out
 migrations/            Alembic migrations
-tests/                 pytest: accounts, plans, brokers, graphs, isolation between them,
-                       the upgrades
+tests/                 pytest: accounts, plans, brokers, graphs, reading reports,
+                       the banks' fees, isolation between accounts, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -396,12 +480,14 @@ frontend/              React + TypeScript app
     plan.ts            how often a plan's amount is put in: weekly, monthly, quarterly
     format.ts          money, percentages, dates
     cash.ts            how much of a purchase was paid with cash from sales
+    ocr.ts             finds the words in a screenshot, on the device, reading it twice
     deleteTrade.ts     asks before deleting a trade
     theme.ts           light or dark: the header switch, remembered per browser
     chart.ts           which slices the portfolio ring shows, and their colours
     graphs.ts          the graph's spacings, and the amounts and dates along its edges
     useApi.ts          loading data, with periodic refresh
-    components/        layouts, trade form, broker tags, the emailed-code step,
+    components/        layouts, trade form, the button that fills it from a
+                       screenshot, broker tags, the emailed-code step,
                        the plan's two fields, ring chart, the line of the
                        portfolio's value, headline figure and stats, the journal's
                        tap-to-open trade lines for phones and narrow windows

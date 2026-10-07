@@ -41,8 +41,12 @@ export function TradeItem({ trade, onDelete }: Props) {
 
       <div className="item-body">
         <dl className="facts">{sale ? <SaleFacts trade={trade} /> : <PurchaseFacts trade={trade} />}</dl>
-        <h3>{sale ? "Why I sold" : "Why I bought"}</h3>
-        <p className="prose">{trade.thesis}</p>
+        {trade.thesis && (
+          <>
+            <h3>{sale ? "Why I sold" : "Why I bought"}</h3>
+            <p className="prose">{trade.thesis}</p>
+          </>
+        )}
         <div className="actions">
           <Link className="button secondary small" to={`/trades/${trade.id}`}>
             Open

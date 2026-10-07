@@ -19,7 +19,7 @@ export interface TradeInput {
   price: string;
   shares: string;
   trade_date: string;
-  /** Why the trade was made: the reason for buying, or for selling. */
+  /** Why the trade was made: the reason for buying, or for selling; "" when not written. */
   thesis: string;
   /** Purchases only, like the two target prices. A sale leaves them empty. */
   forecast: string;
@@ -74,6 +74,24 @@ export interface Trade {
   cash_used: Decimal | null;
   /** Where the trade was placed. A sale uses the shares bought at its own broker first. */
   broker: Broker | null;
+}
+
+/**
+ * What a broker's report says about one trade, read from a screenshot of it
+ * (see ocr.ts). Null where the report shows nothing readable.
+ */
+export interface TradeReading {
+  broker: Broker | null;
+  side: Side | null;
+  ticker: string | null;
+  price: Decimal | null;
+  shares: Decimal | null;
+  fee: Decimal | null;
+  trade_date: string | null;
+  /** Whether price times shares comes to the amount the report shows. Null when it shows none. */
+  adds_up: boolean | null;
+  /** True when the report didn't show the fee and it was worked out from the bank's tariff. */
+  fee_worked_out: boolean;
 }
 
 /** What is held, sold and paid in fees: of the whole portfolio, or of one broker's part. */

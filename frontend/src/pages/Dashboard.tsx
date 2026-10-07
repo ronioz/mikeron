@@ -299,9 +299,8 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: (trade: Trade) 
           <Amount value={trade.current_value} change={trade.gain_pct} />
         )}
       </td>
-      <td className="why">
-        <span>{trade.thesis}</span>
-      </td>
+      {/* A trade can be saved without a reason: a dash, like the table's other empty cells. */}
+      <td className="why">{trade.thesis ? <span>{trade.thesis}</span> : "–"}</td>
       <td className="row-actions">
         <Link to={`/trades/${trade.id}/edit`} state={{ from: "/" }} aria-label={`Edit ${which}`}>
           Edit

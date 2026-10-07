@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db import DbSession
 from app.deps import get_current_user, reject_cross_site_writes
-from app.routers import account, auth, portfolio, trades
+from app.routers import account, auth, portfolio, reports, trades
 
 # The built React app. Absent in development, where the Vite dev server serves it.
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "dist"
@@ -21,6 +21,7 @@ app.include_router(auth.router, prefix="/api", dependencies=[Depends(reject_cros
 app.include_router(account.router, prefix="/api", dependencies=signed_in)
 app.include_router(trades.router, prefix="/api", dependencies=signed_in)
 app.include_router(portfolio.router, prefix="/api", dependencies=signed_in)
+app.include_router(reports.router, prefix="/api", dependencies=signed_in)
 
 
 @app.get("/healthz", include_in_schema=False)

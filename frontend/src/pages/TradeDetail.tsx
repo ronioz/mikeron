@@ -77,7 +77,11 @@ function Report({ trade }: { trade: Trade }) {
 
       <section className="note">
         <h2>{sale ? "Why I sold" : "Why I bought"}</h2>
-        <p className="prose">{trade.thesis}</p>
+        {trade.thesis ? (
+          <p className="prose">{trade.thesis}</p>
+        ) : (
+          <p className="muted">No reason written.</p>
+        )}
       </section>
 
       {!sale && (

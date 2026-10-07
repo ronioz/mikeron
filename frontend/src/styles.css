@@ -1103,6 +1103,23 @@ a.ticker:hover {
   margin-top: 16px;
 }
 
+/* Starting from a screenshot of the broker's report: the button, and what came of it. */
+.report-reader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-reader > div {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
