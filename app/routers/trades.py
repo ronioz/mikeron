@@ -7,10 +7,10 @@ from app import crud
 from app.db import DbSession
 from app.deps import CurrentTrade, CurrentUser
 from app.ledger import OversoldError
-from app.models import Trade, User
+from app.models import SELL, Trade, User
 from app.portfolio import value_trades
 from app.prices import QuoteCache, Quotes
-from app.schemas import TradeIn, TradeOut
+from app.schemas import PaidWithIn, TradeIn, TradeOut
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -83,6 +83,23 @@ def update_trade(
     except OversoldError as problem:
         raise not_enough_shares(problem) from problem
     return valued(trade, user, db, quotes)
+
+
+@router.patch("/{trade_id}")
+def pay_with(
+    trade: CurrentTrade, data: PaidWithIn, user: CurrentUser, db: DbSession, quotes: Quotes
+) -> TradeOut:
+    """Say whether a purchase was paid with cash from sales or new money, and nothing else.
+
+    For a trade added from a broker's report, which doesn't show it. Cash
+    pays what there was of it on the purchase's date; the rest is new money.
+    """
+    if trade.side == SELL:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A sale isn't paid for: what it brings in becomes cash.",
+        )
+    return valued(crud.set_paid_from_cash(db, trade, data.paid_from_cash), user, db, quotes)
 
 
 @router.delete("/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)

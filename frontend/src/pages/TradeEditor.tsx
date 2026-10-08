@@ -64,6 +64,7 @@ export function TradeNew() {
             }}
             cancelTo="/"
             readsReport
+            onJournalChanged={portfolio.reload}
             holdings={portfolio.data?.positions}
             parts={portfolio.data?.by_broker}
             cash={portfolio.data?.cash}

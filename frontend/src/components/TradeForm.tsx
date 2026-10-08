@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "../api";
 import { BROKER_IDS, BROKERS } from "../brokers";
+import { FUNDING } from "../cash";
 import { formatMoney, formatShares, trimZeros } from "../format";
 import type {
   Broker,
@@ -58,11 +59,6 @@ const SIDES: { side: Side; label: string }[] = [
   { side: "sell", label: "Sell" },
 ];
 
-const FUNDING: { fromCash: boolean; label: string }[] = [
-  { fromCash: false, label: "New money" },
-  { fromCash: true, label: "Cash from sales" },
-];
-
 // The brokers, then "Other" for one not listed (stored as no broker).
 const BROKER_CHOICES: (Broker | "")[] = [...BROKER_IDS, ""];
 
@@ -73,8 +69,10 @@ interface Props {
   cancelTo: string;
   /** Where to go after saving. The saved trade's page when not given. */
   returnTo?: string;
-  /** Offer to add the trade from a screenshot of the broker's report instead. For a new trade. */
+  /** Offer to add trades from screenshots of the broker's reports instead. For a new trade. */
   readsReport?: boolean;
+  /** Told when the screenshots changed the journal under the form: what is held, or the cash. */
+  onJournalChanged?: () => void;
   /** What is held now, to help fill in a sale. Leave out when editing a saved trade. */
   holdings?: Position[];
   /** The same broker by broker, so a sale is filled in with what its own broker holds. */
@@ -90,6 +88,7 @@ export function TradeForm({
   cancelTo,
   returnTo,
   readsReport,
+  onJournalChanged,
   holdings,
   parts,
   cash,
@@ -186,7 +185,7 @@ export function TradeForm({
       </div>
 
       <form className="trade-form" onSubmit={submit}>
-        {readsReport && <ReportReader />}
+        {readsReport && <ReportReader onChanged={onJournalChanged} />}
 
         <fieldset className="segmented">
           <legend className="visually-hidden">Buy or sell</legend>

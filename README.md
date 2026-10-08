@@ -46,15 +46,20 @@ remembers your choice in that browser.
   purchase you still hold, opens that form ready to sell the ticker. It shows how
   many shares you hold, and **Sell all** fills them in, so fractional amounts
   such as 0.13304 never have to be typed by hand.
-- **Add from a screenshot** on that form adds a trade with nothing to fill in,
-  from a screenshot of the report your bank's app shows for a finished trade.
-  Choose the picture (on a computer you can also paste it, or drop it on the
-  page) and the trade is saved at once, with its ticker, date, price, shares,
-  broker and whether it was a buy or a sale. Its page opens and says **Trade
-  has been successfully added**. The fee, which the reports don't show, is
-  worked out from the bank's tariff. A trade that can't be added leaves the
-  journal as it was, and the page says why. Why you made the trade, a forecast
-  and targets are left empty: add them with **Edit**. See
+- **Add from screenshots** on that form adds trades with nothing to fill in,
+  from screenshots of the report your bank's app shows for a finished trade,
+  one trade to a picture. Choose one picture or several, up to 30 at a time
+  (on a computer you can also paste them, or drop them on the page), and each
+  trade is saved at once, with its ticker, date, price, shares, broker and
+  whether it was a buy or a sale. Every picture then gets a line of its own
+  beside a small copy of it: **Trade has been successfully added**, with a
+  link to the trade, or why it wasn't, which leaves the journal as it was. One
+  that can't be added doesn't hold up the rest. The fee, which the reports
+  don't show, is worked out from the bank's tariff. Nor do they show what paid
+  for a purchase, so it is saved as new money, and where a sale had left cash
+  by its date, its line has a **New money / Cash from sales** switch that
+  saves as you tap it. Why you made the trade, a forecast and targets are left
+  empty: add them with **Edit**. See
   [Reading a trade's report](#reading-a-trades-report).
 - **Edit** and **Delete** are on every row of the journal and on each trade's
   page. Deleting asks first.
@@ -247,18 +252,26 @@ Things to know:
 
 ## Reading a trade's report
 
-**Add from a screenshot** on the Add trade form works in two steps, and neither
+**Add from screenshots** on the Add trade form works in two steps, and neither
 uses an AI service or costs anything:
 
-1. **The picture is turned into words on your own device**, by a text
-   recognition engine (tesseract.js) running in the browser. The picture is
+1. **Each picture is turned into words on your own device**, by a text
+   recognition engine (tesseract.js) running in the browser. The pictures are
    sent nowhere. The engine's files come from this app, not from a public CDN.
    They are fetched the first time a picture is read: about 6 MB, which the
-   browser then keeps. A report takes a second or two.
+   browser then keeps. A report takes a second or two, and several are read
+   one after another.
 2. **The words, and where each one sat, go to the server**
-   (`POST /api/reports/add`), which puts them back into rows, picks the trade
-   out with regular expressions (`app/reports.py`) and saves it. The words
-   themselves aren't kept.
+   (`POST /api/reports/add`, all the pictures' in one request), which puts
+   them back into rows, picks each trade out with regular expressions
+   (`app/reports.py`) and saves it. The words themselves aren't kept.
+
+**Several pictures are added oldest trade first**, and a day's purchases
+before its sales, whatever order they were chosen in. So a sale finds the
+shares bought in another of the pictures, and a fee that depends on what you
+hold counts the trades before it. Each trade is saved by itself: one that
+can't be added changes nothing for the others. The answers come back in the
+order the pictures were chosen, a trade or a reason for each.
 
 It reads the page each bank's app shows for a finished trade, with the app set
 to Georgian. Take the screenshot with every line of the page in view.
@@ -276,8 +289,8 @@ and the trade's broker is set from that.
 
 **Neither shows the fee** either: the bank books it as a transaction of its
 own. So the trade's fee is worked out from the bank's tariff (`app/fees.py`,
-written up in `docs/bank_and_brokerage_commissions.md`), and the trade's page
-says so when it opens, for you to check against what the bank took:
+written up in `docs/bank_and_brokerage_commissions.md`), and the page says so
+beside the trade, for you to check against what the bank took:
 
 - **Bank of Georgia:** nothing while the shares you hold there are worth
   $1,000 or less; above that, 0.3% of the trade, no less than $0.50 and no more
@@ -289,9 +302,9 @@ says so when it opens, for you to check against what the bank took:
 A tariff changes: when one does, change it in `app/fees.py` and in that
 document.
 
-**Nobody looks the figures over before the trade is saved, so it is only saved
-when the report can be trusted.** Otherwise nothing is added, and the page says
-which of these it was:
+**Nobody looks the figures over before a trade is saved, so it is only saved
+when its report can be trusted.** Otherwise that trade isn't added, and its
+line on the page says which of these it was:
 
 - The picture shows no trade.
 - Something a trade needs can't be read: whether it was a buy or a sale, the
@@ -302,7 +315,9 @@ which of these it was:
   at a price within a cent. That catches a screenshot chosen twice, and a trade
   you typed in earlier. If you really made the same trade twice in a day, type
   the second one in.
-- It is a sale of more shares than your journal held that day.
+- It is a sale of more shares than your journal held that day, counting the
+  purchases in the other pictures chosen with it.
+- The picture can't be opened at all. That one is said by the page itself.
 
 Reading a picture exactly is the hard part, and three things make up for the
 engine's mistakes:
@@ -326,6 +341,14 @@ Things to know:
   and the day is the one the report shows.
 - What a report can't tell is saved as the form starts it: paid with new
   money, and no reason, forecast or targets. **Edit** changes any of it.
+- **What paid for a purchase is chosen on its line**, once it is added, where
+  there was cash from sales on its date (`PATCH /api/trades/{id}`, which
+  changes that and nothing else). The line says what choosing cash comes to
+  before you choose it. Cash pays what there was of it and the rest is new
+  money: with $30 of cash, a $50 purchase is $30 from sales and $20 of new
+  money, which counts against your plan. Cash is spent once, the oldest
+  purchase first, so choosing it for one purchase can leave less for a later
+  one. Their lines follow, and a switch stays even when no cash is left for it.
 - A page left open while the app was updated can't load the reader: the page
   says to reload.
 - When a bank changes its report, the rules need changing, not the engine. Add
@@ -484,10 +507,12 @@ app/                   backend
     account.py         /api/me: the signed-in account
     trades.py          /api/trades
     portfolio.py       /api/summary, /api/portfolio and /api/graphs
-    reports.py         /api/reports/add: a report's words in, its trade saved
+    reports.py         /api/reports/add: the words of reports in, their trades
+                       saved, and an answer for each
 migrations/            Alembic migrations
 tests/                 pytest: accounts, plans, brokers, graphs, reading reports,
-                       the banks' fees, isolation between accounts, the upgrades
+                       the banks' fees, cash from sales, isolation between
+                       accounts, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -505,8 +530,8 @@ frontend/              React + TypeScript app
     chart.ts           which slices the portfolio ring shows, and their colours
     graphs.ts          the graph's spacings, and the amounts and dates along its edges
     useApi.ts          loading data, with periodic refresh
-    components/        layouts, trade form, the button that adds a trade from a
-                       screenshot, broker tags, the emailed-code step,
+    components/        layouts, trade form, the button that adds trades from
+                       screenshots, broker tags, the emailed-code step,
                        the plan's two fields, ring chart, the line of the
                        portfolio's value, headline figure and stats, the journal's
                        tap-to-open trade lines for phones and narrow windows

@@ -55,6 +55,7 @@ def _value_trade(
         return out
 
     out.cash_used = cash.used[trade.id]
+    out.cash_available = cash.available[trade.id]
     lot = ledger.lots[trade.id]
     out.remaining_shares = lot.remaining
     if lot.sold > 0:

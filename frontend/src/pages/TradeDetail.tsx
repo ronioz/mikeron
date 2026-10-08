@@ -1,13 +1,11 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { api } from "../api";
-import { BROKERS } from "../brokers";
 import { isMoney, reinvested } from "../cash";
 import { BrokerBadge } from "../components/BrokerBadge";
 import { AsOf, Change, Delta, Hero, PriceLine, Stat } from "../components/figures";
 import { Loadable } from "../components/Loadable";
-import type { AddedFromReport } from "../components/ReportReader";
 import { confirmAndDelete } from "../deleteTrade";
 import { formatDate, formatMoney, formatShares, formatSignedMoney, formatSignedPercent } from "../format";
 import type { Decimal, Trade } from "../types";
@@ -16,51 +14,10 @@ import { REFRESH_MS, useApi } from "../useApi";
 export function TradeDetail() {
   const id = Number(useParams().id);
   const state = useApi(() => api.getTrade(id), [id], REFRESH_MS);
-  const added = useJustAdded();
-  return (
-    <Loadable state={state}>
-      {(trade) => <Report trade={trade} added={added?.id === trade.id ? added : undefined} />}
-    </Loadable>
-  );
+  return <Loadable state={state}>{(trade) => <Report trade={trade} />}</Loadable>;
 }
 
-/**
- * What the screenshot reader said on its way here, having just added a trade
- * (see ReportReader). It is kept by the page and taken out of the browser's
- * history at once, so that reloading or coming back doesn't say it again.
- */
-function useJustAdded(): AddedFromReport | undefined {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [added] = useState(() => (location.state as { added?: AddedFromReport } | null)?.added);
-  useEffect(() => {
-    if (added) navigate(location, { replace: true, state: null });
-  }, []);
-  return added;
-}
-
-/** Said on a trade's page right after a screenshot added it, with what is worth a second look. */
-function AddedNotice({ trade, added }: { trade: Trade; added: AddedFromReport }) {
-  const sale = trade.side === "sell";
-  return (
-    <p className="notice done" role="status">
-      <strong>Trade has been successfully added.</strong>
-      {added.feeWorkedOut && trade.broker && (
-        // Neither bank's report of a trade shows what it charged for it.
-        <>
-          {" "}
-          The report doesn't show the fee: by {BROKERS[trade.broker].name}'s tariff{" "}
-          {isMoney(trade.fee) ? `it is ${formatMoney(trade.fee)}` : "there is none"}, so check that
-          against what the bank took.
-        </>
-      )}
-      {!trade.broker && " The report doesn't say which bank it is from, so no broker is recorded."}{" "}
-      Use Edit to say why you {sale ? "sold" : "bought"}, or to change anything.
-    </p>
-  );
-}
-
-function Report({ trade, added }: { trade: Trade; added?: AddedFromReport }) {
+function Report({ trade }: { trade: Trade }) {
   const navigate = useNavigate();
   const [problem, setProblem] = useState<string>();
   const sale = trade.side === "sell";
@@ -103,7 +60,6 @@ function Report({ trade, added }: { trade: Trade; added?: AddedFromReport }) {
           </button>
         </div>
       </div>
-      {added && <AddedNotice trade={trade} added={added} />}
       {problem && (
         <p className="notice" role="alert">
           {problem}

@@ -98,6 +98,14 @@ def update_trade(db: Session, trade: Trade, data: TradeIn) -> Trade:
     return trade
 
 
+def set_paid_from_cash(db: Session, trade: Trade, paid_from_cash: bool) -> Trade:
+    # Moves no shares, so it can't leave a sale short.
+    trade.paid_from_cash = paid_from_cash
+    db.commit()
+    db.refresh(trade)
+    return trade
+
+
 def delete_trade(db: Session, trade: Trade) -> None:
     user_id, ticker = trade.user_id, trade.ticker
     db.delete(trade)

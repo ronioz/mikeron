@@ -72,6 +72,11 @@ export interface Trade {
    * was new money. Less than the cost when there wasn't that much cash.
    */
   cash_used: Decimal | null;
+  /**
+   * Purchases only: how much of the cost cash from sales could pay on the
+   * purchase's date. What one paid with new money would use if that were changed.
+   */
+  cash_available: Decimal | null;
   /** Where the trade was placed. A sale uses the shares bought at its own broker first. */
   broker: Broker | null;
 }
@@ -82,6 +87,11 @@ export interface ReportedTrade {
   /** True when the report didn't show the fee and the trade's was worked out from the bank's tariff. */
   fee_worked_out: boolean;
 }
+
+/** What became of one report sent to be added: its trade, or a sentence saying why it wasn't added. */
+export type ReportOutcome =
+  | { added: ReportedTrade; problem: null }
+  | { added: null; problem: string };
 
 /** What is held, sold and paid in fees: of the whole portfolio, or of one broker's part. */
 export interface ShareTotals {

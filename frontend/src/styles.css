@@ -415,21 +415,6 @@ small.loss {
   margin: 16px 0 0;
 }
 
-/*
- * Good news, such as a trade added from a screenshot: the same box in the
- * page's own greys, as green is kept for money.
- */
-.notice.done {
-  border-color: var(--line);
-  background: var(--raised);
-  color: var(--text-soft);
-}
-
-.notice.done strong {
-  color: var(--text);
-  font-weight: 600;
-}
-
 /* Read out by screen readers, but not drawn. */
 .visually-hidden {
   position: absolute;
@@ -1119,8 +1104,8 @@ a.ticker:hover {
 }
 
 /*
- * Adding the trade from a screenshot of the broker's report instead: the
- * button with what it does beside it, and under them why a trade wasn't added.
+ * Adding trades from screenshots of the broker's reports instead: the button
+ * with what it does beside it, and under them what became of each picture.
  */
 .report-reader {
   display: flex;
@@ -1138,6 +1123,92 @@ a.ticker:hover {
 .report-reader .notice {
   flex: 1 1 100%;
   margin: 0;
+}
+
+/* A line for each picture, beside a small copy of it to tell it by. */
+.report-results {
+  flex: 1 1 100%;
+  font-size: 0.9rem;
+}
+
+.report-results p {
+  margin: 0;
+}
+
+.report-results .tally {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.report-results ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report-results li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* The top of the picture, where a report names its trade. */
+.report-results img,
+.report-results .no-picture {
+  flex: none;
+  width: 36px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  object-fit: cover;
+  object-position: top;
+}
+
+.report-results .what {
+  margin-bottom: 2px;
+}
+
+/*
+ * The date and figures, or the file's name: moved under the ticker whole when
+ * they don't fit beside it. A name can be one long word.
+ */
+.report-results small {
+  display: inline-block;
+  overflow-wrap: anywhere;
+}
+
+.report-results strong {
+  font-weight: 600;
+}
+
+/* Under the list: what holds for all of its lines. */
+.report-results > .hint {
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* On a purchase's line: what it was paid with, to be chosen, and under it what that comes to. */
+.paid-with {
+  min-width: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.paid-with p {
+  margin-top: 6px;
+}
+
+/* Smaller than a form's: it sits in a line of a list. */
+.paid-with .segmented label > span {
+  min-width: 0;
+  padding: 5px 14px;
+}
+
+.paid-with .segmented input:disabled + span {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .field-row {

@@ -10,12 +10,32 @@ export function isMoney(value: Decimal): boolean {
   return Number(value) >= HALF_CENT;
 }
 
+// What a purchase can be paid with, as its switch names them.
+export const FUNDING: { fromCash: boolean; label: string }[] = [
+  { fromCash: false, label: "New money" },
+  { fromCash: true, label: "Cash from sales" },
+];
+
+/** Part of a purchase's cost: all of it, or less with the amount. Null when it is nothing. */
+type Part = { all: boolean; amount: Decimal } | null;
+
+function partOf(trade: Trade, amount: Decimal | null): Part {
+  if (amount === null || !isMoney(amount)) return null;
+  return { all: Number(trade.net_amount) - Number(amount) < HALF_CENT, amount };
+}
+
 /**
  * How much of a purchase was paid with cash from sales: all of it, or part of
  * it with the amount. Null when it was all new money, or for a sale.
  */
-export function reinvested(trade: Trade): { all: boolean; amount: Decimal } | null {
-  const used = trade.cash_used;
-  if (used === null || !isMoney(used)) return null;
-  return { all: Number(trade.net_amount) - Number(used) < HALF_CENT, amount: used };
+export function reinvested(trade: Trade): Part {
+  return partOf(trade, trade.cash_used);
+}
+
+/**
+ * How much of a purchase cash from sales could pay on its date: what it would
+ * use if it were paid from it. Null when there was none, or for a sale.
+ */
+export function payableFromCash(trade: Trade): Part {
+  return partOf(trade, trade.cash_available);
 }

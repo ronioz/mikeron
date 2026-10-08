@@ -22,6 +22,10 @@ class CashBook:
     balance: Decimal = ZERO
     # For each purchase, by trade id: how much of its cost and fee came from that cash.
     used: dict[int, Decimal] = field(default_factory=dict)
+    # For each purchase: how much of its cost and fee that cash could pay on
+    # its date. One paid from it used this much; one paid with new money would,
+    # if it were paid from it instead.
+    available: dict[int, Decimal] = field(default_factory=dict)
 
 
 def build_cash_book(trades: Iterable[Trade]) -> CashBook:
@@ -32,7 +36,9 @@ def build_cash_book(trades: Iterable[Trade]) -> CashBook:
         if trade.side == SELL:
             book.balance += trade.net_amount
             continue
-        spent = min(book.balance, trade.net_amount) if trade.paid_from_cash else ZERO
+        available = min(book.balance, trade.net_amount)
+        book.available[trade.id] = available
+        spent = available if trade.paid_from_cash else ZERO
         book.used[trade.id] = spent
         book.balance -= spent
     return book

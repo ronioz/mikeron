@@ -9,6 +9,7 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
+    JsonValue,
     PlainSerializer,
     ValidationInfo,
     field_validator,
@@ -158,6 +159,16 @@ class TradeOut(TradeIn):
     # was new money. Can be less than the cost even when paid_from_cash is set,
     # if there wasn't that much cash on the purchase's date.
     cash_used: Decimal | None = None
+    # Purchases only: how much of the cost cash from sales could pay on the
+    # purchase's date. The same as cash_used when it was paid from cash; for
+    # one paid with new money, what it would use if that were changed.
+    cash_available: Decimal | None = None
+
+
+class PaidWithIn(BaseModel):
+    """What a purchase was paid with, said by itself after the trade was saved."""
+
+    paid_from_cash: bool
 
 
 class SeenWord(BaseModel):
@@ -181,6 +192,20 @@ class ReportIn(BaseModel):
     latin: Annotated[list[SeenWord], Field(max_length=1500)] | None = None
 
 
+# How many reports can be sent at once. frontend/src/components/ReportReader.tsx
+# holds the same number, to say so before reading any picture.
+MAX_REPORTS = 30
+
+
+class ReportsIn(BaseModel):
+    """The reports of several trades, one from each picture, to be added together."""
+
+    # Each is a ReportIn, checked by itself as its turn comes: a picture that
+    # is no report at all, such as a page of small print with more words than
+    # one holds, then gets an answer of its own and the rest are still added.
+    reports: Annotated[list[JsonValue], Field(min_length=1, max_length=MAX_REPORTS)]
+
+
 class ReportedTrade(BaseModel):
     """The trade a broker's report showed, now in the journal."""
 
@@ -189,6 +214,14 @@ class ReportedTrade(BaseModel):
     # from the bank's tariff instead (app/fees.py), to be checked against what
     # the bank took.
     fee_worked_out: bool
+
+
+class ReportOutcome(BaseModel):
+    """What became of one report: its trade was added, or it wasn't and `problem` says why."""
+
+    added: ReportedTrade | None = None
+    # A sentence to show as it is.
+    problem: str | None = None
 
 
 class Position(BaseModel):
