@@ -300,11 +300,46 @@ def test_sign_up_can_be_closed(new_client):
     settings.sign_up_open = False
     try:
         client = new_client()
-        assert client.get("/api/auth/options").json() == {"sign_up_open": False}
+        assert client.get("/api/auth/options").json() == {
+            "sign_up_open": False,
+            "invite_only": False,
+        }
         response = sign_up(client, ANA, PASSWORD)
         assert response.status_code == 403
     finally:
         settings.sign_up_open = True
+
+
+def test_sign_up_can_be_by_invitation(new_client, outbox, monkeypatch):
+    # However the list is typed: any case, with commas, spaces or new lines.
+    monkeypatch.setattr(get_settings(), "invited_emails", " Ana@Example.com,\n bo@example.com ")
+    client = new_client()
+    assert client.get("/api/auth/options").json() == {"sign_up_open": True, "invite_only": True}
+    response = sign_up(client, "eve@example.com", PASSWORD)
+    assert response.status_code == 403
+    assert response.json()["detail"][0]["loc"] == ["body", "email"]
+    # Turned away before anything was sent or saved.
+    assert outbox.sent == []
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
+    assert sign_up(client, ANA, PASSWORD).status_code == 202
+    assert outbox.code_for(ANA)
+
+
+def test_an_address_that_isnt_invited_learns_nothing_of_its_account(
+    account, new_client, outbox, monkeypatch
+):
+    account()
+    emails_before = len(outbox.sent)
+    monkeypatch.setattr(get_settings(), "invited_emails", "bo@example.com")
+    nobody = sign_up(new_client(), "eve@example.com", PASSWORD)
+    response = sign_up(new_client(), ANA, PASSWORD)
+    # The same refusal as an address with no account, and no "you already have one" email.
+    assert response.status_code == 403
+    assert response.json() == nobody.json()
+    assert len(outbox.sent) == emails_before
+    # Signing in doesn't depend on the list.
+    assert sign_in(new_client()).status_code == 200
 
 
 def test_short_passwords_and_bad_addresses_are_refused(new_client):

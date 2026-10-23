@@ -9,7 +9,9 @@ from app.db import Base, engine
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Run inside another program (the tests do), leave that program's loggers
+    # on: by default fileConfig silences every logger it doesn't name.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

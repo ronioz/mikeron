@@ -2,14 +2,16 @@
 
 With MAIL_BACKEND=log, the default, each email is written to the server log
 instead of being sent, which is all a computer without a mail service can do.
-With MAIL_BACKEND=smtp it goes through any provider's SMTP server, Resend's for
-example. Emails are sent after the response (FastAPI background tasks), so a
-slow mail server doesn't hold up the page.
+With MAIL_BACKEND=smtp it goes through any provider's SMTP server, Brevo's or
+Resend's for example. Emails are sent after the response (FastAPI background
+tasks), so a slow mail server doesn't hold up the page.
 """
 
 import logging
 import smtplib
+from datetime import UTC, datetime
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid, parseaddr
 from functools import lru_cache
 from typing import Annotated, Protocol
 
@@ -41,8 +43,11 @@ class LogMailer:
 
 class SmtpMailer:
     def __init__(self, host: str, port: int, username: str, password: str, sender: str) -> None:
-        if not host or not sender:
-            raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST and MAIL_FROM")
+        # The domain of the sender's address, which names each email's Message-ID.
+        _, at, domain = parseaddr(sender)[1].rpartition("@")
+        if not host or not at or not domain:
+            raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST, and MAIL_FROM with an address")
+        self._domain = domain
         self._host = host
         self._port = port
         self._username = username
@@ -54,6 +59,10 @@ class SmtpMailer:
         message["From"] = self._sender
         message["To"] = to
         message["Subject"] = subject
+        # The mail standard requires a Date, and Gmail refuses mail without a
+        # Message-ID. smtplib adds neither, and not every mail service does.
+        message["Date"] = format_datetime(datetime.now(UTC))
+        message["Message-ID"] = make_msgid(domain=self._domain)
         message.set_content(text)
         try:
             # Port 465 is encrypted from the start; the others upgrade with STARTTLS.

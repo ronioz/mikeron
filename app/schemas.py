@@ -454,3 +454,5 @@ class CodeSent(BaseModel):
 
 class AuthOptions(BaseModel):
     sign_up_open: bool
+    # Only invited addresses can sign up (INVITED_EMAILS).
+    invite_only: bool

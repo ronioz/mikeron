@@ -237,4 +237,6 @@ export interface CodeSent {
 
 export interface AuthOptions {
   sign_up_open: boolean;
+  /** Only invited addresses can sign up. */
+  invite_only: boolean;
 }

@@ -14,8 +14,8 @@ Everyone signs in with their own account and sees only their own journal.
 - **Frontend:** React and TypeScript, built with Vite, in `frontend/`.
 - **Live prices:** Finnhub, cached in the database.
 - **Closing prices for the graphs:** Twelve Data, kept in the database.
-- **Email:** sign-up and password-reset codes, sent over SMTP (Resend, for example),
-  or written to the server log until that is set up.
+- **Email:** sign-up and password-reset codes, sent over SMTP (Brevo or Resend,
+  for example), or written to the server log until that is set up.
 
 ## Run it
 
@@ -158,8 +158,11 @@ wrong passwords and codes are limited too. No answer says whether an address has
 an account: signing up and asking for a reset code get the same reply either
 way.
 
-`SIGN_UP_OPEN=false` stops new accounts; existing ones keep working. Whoever
-runs the server can set any account's password from the command line:
+`SIGN_UP_OPEN=false` stops new accounts; existing ones keep working. With
+`INVITED_EMAILS` set, sign-up is by invitation: only the addresses listed there,
+separated by commas, can create an account, and any other is turned away before
+anything is sent, whether or not it has an account. Whoever runs the server can
+set any account's password from the command line:
 
 ```sh
 docker compose exec web python -m app.manage set-password you@example.com
@@ -360,12 +363,37 @@ Things to know:
 
 With the default `MAIL_BACKEND=log`, emails aren't sent: each one, code
 included, is written to the server log (`docker compose logs web`). That's
-enough on your own computer. To send them, with [Resend](https://resend.com):
+enough on your own computer. To send them, use a mail service with SMTP, then
+run `docker compose up -d`.
 
-1. Create a free account (3,000 emails a month, at most 100 a day) and add your
-   domain. Resend shows a few DNS records to add at your domain's registrar.
-   Without a domain, Resend only delivers to your own account's address, which
-   is enough to try it.
+**[Brevo](https://www.brevo.com)** needs no domain of your own. Its free plan
+sends 300 emails a day.
+
+1. Create a free account. Under Senders, add the address emails should come
+   from, and confirm it with the email Brevo sends there.
+2. Under SMTP & API, on the SMTP tab, copy the login and create an SMTP key.
+3. In `.env`, set:
+
+   ```sh
+   MAIL_BACKEND=smtp
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USERNAME=the_login_brevo_shows
+   SMTP_PASSWORD=your_smtp_key
+   MAIL_FROM=Mikeronn <you@gmail.com>
+   ```
+
+   `MAIL_FROM` must be the sender you confirmed. Brevo can't prove that mail
+   from a free address such as a Gmail one is genuine, so it sends it from an
+   address of its own instead, and more of it lands in spam. A domain of your
+   own, added to Brevo, avoids both.
+
+**[Resend](https://resend.com)** needs a domain: without one, it only delivers to
+your own account's address, which is enough to try it. Its free plan sends 3,000
+emails a month, at most 100 a day.
+
+1. Create a free account and add your domain. Resend shows a few DNS records to
+   add at your domain's registrar.
 2. Create an API key.
 3. In `.env`, set:
 
@@ -379,9 +407,8 @@ enough on your own computer. To send them, with [Resend](https://resend.com):
    ```
 
    Without a domain yet, use `MAIL_FROM=onboarding@resend.dev`.
-4. Run `docker compose up -d`.
 
-Any other provider with SMTP works the same way with its own settings. An email
+Any other service with SMTP works the same way with its own settings. An email
 that can't be sent is reported in the server log.
 
 ## Configuration
@@ -394,10 +421,11 @@ Copy `.env.example` to `.env` to change any of these.
 | `PRICE_TTL_SECONDS` | `60` | How long a fetched price is reused |
 | `TWELVE_DATA_API_KEY` | empty | Twelve Data key. Empty turns the graph off |
 | `SIGN_UP_OPEN` | `true` | Whether new accounts can be created |
+| `INVITED_EMAILS` | empty | Addresses that may sign up, separated by commas. Empty lets anyone |
 | `SESSION_DAYS` | `90` | How long a device stays signed in after it was last used |
 | `MAIL_BACKEND` | `log` | `log` writes emails to the server log; `smtp` sends them |
 | `SMTP_HOST` / `SMTP_PORT` | empty / `465` | Mail server. Port 465 is encrypted from the start; others use STARTTLS |
-| `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | Mail server login (for Resend: `resend` and the API key) |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | Mail server login (for Brevo: its SMTP login and an SMTP key; for Resend: `resend` and the API key) |
 | `MAIL_FROM` | empty | Who emails come from, such as `Mikeronn <codes@example.com>` |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-*` headers uvicorn trusts (see Hosting) |
 | `CLIENT_IP_HEADER` | empty | A header in which the host gives the visitor's address and that visitors can't send, such as `CF-Connecting-IP` (see Hosting) |
@@ -510,9 +538,9 @@ app/                   backend
     reports.py         /api/reports/add: the words of reports in, their trades
                        saved, and an answer for each
 migrations/            Alembic migrations
-tests/                 pytest: accounts, plans, brokers, graphs, reading reports,
-                       the banks' fees, cash from sales, isolation between
-                       accounts, the upgrades
+tests/                 pytest: accounts, invitations, emails, plans, brokers,
+                       graphs, reading reports, the banks' fees, cash from
+                       sales, isolation between accounts, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -577,8 +605,7 @@ Postgres. Before putting it on the public internet:
   its default. Then set `FORWARDED_ALLOW_IPS=*` (safe while only this machine
   can reach the app), so the app sees visitors' addresses for its limits and
   marks the cookie as HTTPS-only.
-- Set up email (see [Email](#email)) with your domain, or nobody can confirm
-  their address.
+- Set up email (see [Email](#email)), or nobody can confirm their address.
 - Opening sign-up to the public also needs a privacy policy, and price plans
   that allow it: the free plans of Finnhub (live prices) and Twelve Data
   (closing prices) are for personal use.
@@ -603,18 +630,14 @@ after 30 days.
 Every push to `web-application` deploys again, and the new version applies any
 migrations as it starts. Things to know:
 
-- Emails aren't sent, so only whoever can read the Logs tab can finish a
-  sign-up. For a private beta that is the invitation: a friend signs up, you
-  read their code in the log and pass it on. A code works for 15 minutes.
-
+- Until email is set up (below), codes aren't sent, so only whoever can read
+  the Logs tab can finish a sign-up: a friend signs up, you read their code in
+  the log and pass it on. A code works for 15 minutes.
 - It starts with an empty database. The journal on your computer stays there;
   moving it is a dump and restore (see [Backups](#backups)).
 - The app sleeps after 15 minutes without visits, and the next visit takes about
   a minute to wake it. Neon's database sleeps after 5 minutes and wakes in under
   a second.
-- Render's free plan blocks the usual mail ports (25, 465 and 587). Resend also
-  listens on 2587: set `MAIL_BACKEND=smtp`, `SMTP_PORT=2587` and the rest of
-  [Email](#email) in the service's Environment tab.
 - `FORWARDED_ALLOW_IPS=*` makes the app believe Render's proxy that the page
   came over HTTPS. The visitor's address is not taken from `X-Forwarded-For`,
   though: Render only adds to what a visitor sent in it, so anyone could name
@@ -623,3 +646,21 @@ migrations as it starts. Things to know:
   address in `CF-Connecting-IP` and refuses requests that bring that header
   themselves, so `render.yaml` sets `CLIENT_IP_HEADER=CF-Connecting-IP`. On
   another host, name its own such header, or leave it empty.
+
+#### Emailing the codes from Render
+
+Render's free plan blocks the usual mail ports (25, 465 and 587), so
+`render.yaml` sends through Brevo's port 2525 (Resend's would be 2587). The
+rest goes in the service's Environment tab rather than in `render.yaml`, which
+anyone can read, and applying the file leaves those values alone:
+
+1. Set up Brevo as in [Email](#email): a confirmed sender, its SMTP login and
+   an SMTP key.
+2. In the Environment tab, add `SMTP_USERNAME`, `SMTP_PASSWORD` and `MAIL_FROM`,
+   and `INVITED_EMAILS` with the addresses of the people you're letting in.
+   Without it, anyone who finds the site can sign up.
+3. Set `MAIL_BACKEND` to `smtp` and save. The app restarts with the new
+   settings.
+
+To let someone else in later, add their address to `INVITED_EMAILS`. An email
+that can't be sent shows in the Logs tab as "Could not send email to …".

@@ -69,6 +69,20 @@ def _wrong_code() -> HTTPException:
     )
 
 
+def _not_invited() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=[
+            {
+                "type": "not_invited",
+                "loc": ["body", "email"],
+                "msg": "Sign-up is by invitation for now, and this address isn't invited. "
+                "Ask whoever sent you the link to add it.",
+            }
+        ],
+    )
+
+
 def _sign_in(
     request: Request, response: Response, db: Session, user: User, client: str
 ) -> SignedIn:
@@ -84,7 +98,8 @@ def _sign_in(
 
 @router.get("/options")
 def get_options() -> AuthOptions:
-    return AuthOptions(sign_up_open=get_settings().sign_up_open)
+    settings = get_settings()
+    return AuthOptions(sign_up_open=settings.sign_up_open, invite_only=bool(settings.invited()))
 
 
 @router.post("/sign-up", status_code=status.HTTP_202_ACCEPTED)
@@ -92,10 +107,16 @@ def sign_up(
     data: SignUpIn, request: Request, background: BackgroundTasks, db: DbSession, mailer: Mail
 ) -> CodeSent:
     """Start an account. A code to confirm the address is emailed to it."""
-    if not get_settings().sign_up_open:
+    settings = get_settings()
+    if not settings.sign_up_open:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Sign-up is closed at the moment."
         )
+    invited = settings.invited()
+    # Before anything is counted, saved or sent. An address that isn't invited
+    # is turned away whether or not it has an account, so that stays unsaid.
+    if invited and data.email not in invited:
+        raise _not_invited()
     ip = client_ip(request)
     check_limit(limits.SIGN_UPS, ip)
     _count_code_email(data.email)

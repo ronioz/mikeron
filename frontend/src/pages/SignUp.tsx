@@ -83,7 +83,11 @@ export function SignUp() {
         <Field
           name="email"
           label="Email"
-          hint="We'll email a code to it, to check it's yours."
+          hint={
+            options.data?.invite_only
+              ? "Use the address you were invited with. We'll email a code to it, to check it's yours."
+              : "We'll email a code to it, to check it's yours."
+          }
           error={errors.email}
         >
           <input

@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -13,6 +14,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://trades:trades@localhost:5432/trades"
     # Whether anyone can create an account. Existing accounts work either way.
     sign_up_open: bool = True
+    # Sign-up by invitation: the addresses that may create an account, separated
+    # by commas. Empty: anyone may. Existing accounts work either way.
+    invited_emails: str = ""
     # The request header in which the host's proxy gives the visitor's address,
     # where it sets one that visitors can't send themselves: CF-Connecting-IP
     # behind Cloudflare, as on Render. Empty: the address uvicorn works out,
@@ -21,10 +25,10 @@ class Settings(BaseSettings):
     # How long a browser or the app stays signed in after it was last used.
     session_days: int = 90
     # "log" writes emails into the server log instead of sending them, fine on
-    # one computer. "smtp" sends them through the server below (Resend's, say).
+    # one computer. "smtp" sends them through the server below (Brevo's, say).
     mail_backend: Literal["log", "smtp"] = "log"
     smtp_host: str = ""
-    # 465 is encrypted from the start; any other port (587) upgrades with STARTTLS.
+    # 465 is encrypted from the start; any other port (587, 2525) upgrades with STARTTLS.
     smtp_port: int = 465
     smtp_username: str = ""
     smtp_password: str = ""
@@ -48,6 +52,10 @@ class Settings(BaseSettings):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value[len(prefix):]
         return value
+
+    def invited(self) -> frozenset[str]:
+        """INVITED_EMAILS as lowercase addresses, as the sign-up form's are kept."""
+        return frozenset(re.split(r"[\s,]+", self.invited_emails.lower())) - {""}
 
 
 @lru_cache

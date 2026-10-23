@@ -28,6 +28,22 @@ services:
       # Render, gives the address in a header it lets nobody else send.
       - key: CLIENT_IP_HEADER
         value: CF-Connecting-IP
-      # Render's free plan blocks the usual mail ports, so codes go to the log.
-      - key: MAIL_BACKEND
-        value: log
+      # Codes are emailed through Brevo's free plan. Render's free plan blocks
+      # the usual mail ports (25, 465 and 587), but not 2525.
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "2525"
+      # Typed into the dashboard rather than kept in this public file: Brevo's
+      # SMTP login and key, the sender Brevo has checked, and the addresses
+      # that may sign up. Applying this file leaves them alone.
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: INVITED_EMAILS
+        sync: false
+      # MAIL_BACKEND isn't set here: emails go to the Logs tab (log, the
+      # default) until it's set to smtp in the dashboard, once the above are in.
