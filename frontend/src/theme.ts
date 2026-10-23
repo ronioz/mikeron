@@ -37,8 +37,14 @@ export function currentTheme(): Theme {
 
 /** Shows a theme, and tints a phone browser's address bar to match the page. */
 export function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  const page = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  const root = document.documentElement;
+  // At once, even for what fades on hover: draw the new colours with fading
+  // turned off, then turn it back on.
+  root.classList.add("switching-theme");
+  root.dataset.theme = theme;
+  void root.offsetHeight;
+  root.classList.remove("switching-theme");
+  const page = getComputedStyle(root).getPropertyValue("--bg").trim();
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", page);
 }
 
