@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     # Who emails come from, such as "Mikeronn <codes@example.com>".
     mail_from: str = ""
+    # Who runs this copy of Mikeronn and where to write about privacy, both shown
+    # on the privacy page. Set on the host rather than in this public repository,
+    # since they are personal.
+    operator_name: str = ""
+    contact_email: str = ""
     # Empty key turns live prices off; everything else keeps working.
     finnhub_api_key: str = ""
     finnhub_base_url: str = "https://finnhub.io/api/v1"

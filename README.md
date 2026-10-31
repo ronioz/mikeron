@@ -158,6 +158,13 @@ wrong passwords and codes are limited too. No answer says whether an address has
 an account: signing up and asking for a reset code get the same reply either
 way.
 
+**Privacy** (`/privacy`, linked from the sign-up and Account pages and readable
+without signing in) sets out what the app keeps, who else handles it and for how
+long. It names whoever runs the site from `OPERATOR_NAME` and `CONTACT_EMAIL`,
+which belong in the host's settings rather than in this repository. Its text
+describes the Render, Neon and Brevo setup under [Hosting](#hosting): change it
+in `frontend/src/pages/Privacy.tsx` when that setup changes.
+
 `SIGN_UP_OPEN=false` stops new accounts; existing ones keep working. With
 `INVITED_EMAILS` set, sign-up is by invitation: only the addresses listed there,
 separated by commas, can create an account, and any other is turned away before
@@ -427,6 +434,7 @@ Copy `.env.example` to `.env` to change any of these.
 | `SMTP_HOST` / `SMTP_PORT` | empty / `465` | Mail server. Port 465 is encrypted from the start; others use STARTTLS |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | Mail server login (for Brevo: its SMTP login and an SMTP key; for Resend: `resend` and the API key) |
 | `MAIL_FROM` | empty | Who emails come from, such as `Mikeronn <codes@example.com>` |
+| `OPERATOR_NAME` / `CONTACT_EMAIL` | empty | Who runs the site and where to write about privacy, named on the privacy page |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-*` headers uvicorn trusts (see Hosting) |
 | `CLIENT_IP_HEADER` | empty | A header in which the host gives the visitor's address and that visitors can't send, such as `CF-Connecting-IP` (see Hosting) |
 | `BIND_ADDRESS` | `127.0.0.1` | Interface the app is published on. `0.0.0.0` allows other devices |
@@ -537,10 +545,12 @@ app/                   backend
     portfolio.py       /api/summary, /api/portfolio and /api/graphs
     reports.py         /api/reports/add: the words of reports in, their trades
                        saved, and an answer for each
+    privacy.py         /api/privacy: who runs the site, for the privacy page
 migrations/            Alembic migrations
-tests/                 pytest: accounts, invitations, emails, plans, brokers,
-                       graphs, reading reports, the banks' fees, cash from
-                       sales, isolation between accounts, the upgrades
+tests/                 pytest: accounts, invitations, emails, the privacy
+                       page's contact, plans, brokers, graphs, reading
+                       reports, the banks' fees, cash from sales, isolation
+                       between accounts, the upgrades
 frontend/              React + TypeScript app
   src/
     main.tsx           routes, and the fonts (Instrument Serif and Instrument Sans,
@@ -564,33 +574,43 @@ frontend/              React + TypeScript app
                        portfolio's value, headline figure and stats, the journal's
                        tap-to-open trade lines for phones and narrow windows
     pages/             journal, portfolio, graphs, trade report, add / edit,
-                       sign in, create an account, reset a password, account
+                       sign in, create an account, reset a password, account,
+                       privacy
     styles.css         the look: colours and type for both themes, then layout
 ```
 
 How the numbers flow: the backend does all the arithmetic with exact decimals
 and sends amounts as strings. The frontend only formats them.
 
-## Adding the iPhone app later
+## Adding the phone apps later
 
-The JSON API is ready for a native app, which would be a second client next to
-the website, showing the figures the server works out:
+The Android app comes first, then the iPhone app. Each is a second client next
+to the website, showing the figures the server works out, through the same
+JSON API:
 
 - **Signing in:** the same `/api/auth` calls, with `"client": "app"` in the
   body. The reply then carries a `token` (and when it expires unless used)
-  instead of setting a cookie. The app keeps it in the Keychain and sends
+  instead of setting a cookie. The app keeps it in the phone's secure storage
+  (the Android Keystore, or the Keychain on an iPhone) and sends
   `Authorization: Bearer <token>` with every request; signing out ends it.
-- **Codes, not links,** in the emails, so the app needs no universal links:
-  the person types the code, or iOS offers it from Mail.
-- **Deleting an account** from inside the app, which the App Store requires of
-  any app that creates accounts: `POST /api/me/delete`.
-- **A typed client:** FastAPI describes the API at `/openapi.json`, which Apple's
-  swift-openapi-generator can turn into Swift code.
-- **Before the first release:** host the backend (an iPhone can't reach your
-  computer's `localhost`), and keep the API's shapes stable from then on, or
-  move it under `/api/v1`, since people don't update apps at once. Adding Sign
-  in with Apple later means a column for Apple's user id, and revoking Apple's
-  tokens when an account is deleted.
+- **Codes, not links,** in the emails, so the apps need no App Links or
+  universal links: the person types the code (an iPhone also offers it from
+  Mail).
+- **Deleting an account** from inside the app: `POST /api/me/delete`. Google
+  Play and the App Store both require it of apps that create accounts, and
+  Google Play also wants a web page for it, which the website's Account page
+  is.
+- **A typed client:** FastAPI describes the API at `/openapi.json`, which a
+  generator can turn into code for the app's language: OpenAPI Generator covers
+  Kotlin, Dart and TypeScript, and Apple's swift-openapi-generator covers Swift.
+- **Before the first release:** host the backend (a phone can't reach your
+  computer's `localhost`; the Android emulator reaches it at `10.0.2.2`), and
+  keep the API's shapes stable from then on, or move it under `/api/v1`, since
+  people don't update apps at once. On Google Play, a new personal developer
+  account has to run a closed test with at least 12 testers for 14 days in a
+  row before the app can be published. Adding Sign in with Apple to the iPhone
+  app later means a column for Apple's user id, and revoking Apple's tokens
+  when an account is deleted.
 
 ## Hosting
 
@@ -606,9 +626,11 @@ Postgres. Before putting it on the public internet:
   can reach the app), so the app sees visitors' addresses for its limits and
   marks the cookie as HTTPS-only.
 - Set up email (see [Email](#email)), or nobody can confirm their address.
-- Opening sign-up to the public also needs a privacy policy, and price plans
-  that allow it: the free plans of Finnhub (live prices) and Twelve Data
-  (closing prices) are for personal use.
+- Set `OPERATOR_NAME` and `CONTACT_EMAIL` for the privacy page (see
+  [Accounts](#accounts)).
+- Opening sign-up to the public also needs price plans that allow it: the free
+  plans of Finnhub (live prices) and Twelve Data (closing prices) are for
+  personal use.
 
 ### A free test deploy on Render and Neon
 

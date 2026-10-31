@@ -235,6 +235,12 @@ export interface CodeSent {
   email: string;
 }
 
+/** Who runs this copy of Mikeronn, for the privacy page. Empty when the host hasn't said. */
+export interface PrivacyContact {
+  operator_name: string;
+  contact_email: string;
+}
+
 export interface AuthOptions {
   sign_up_open: boolean;
   /** Only invited addresses can sign up. */

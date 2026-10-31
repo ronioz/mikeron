@@ -2,7 +2,10 @@ import { Link, Outlet } from "react-router";
 
 import { ThemeMenu } from "./ThemeMenu";
 
-/** Around the sign-in pages: the name and the theme switch, and nothing to navigate to yet. */
+/**
+ * Around the sign-in pages and the privacy page: the name and the theme switch,
+ * and nothing to navigate to yet.
+ */
 export function AuthLayout() {
   return (
     <>

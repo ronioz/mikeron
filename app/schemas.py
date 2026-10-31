@@ -452,6 +452,13 @@ class CodeSent(BaseModel):
     email: str
 
 
+class PrivacyContact(BaseModel):
+    """Who runs this copy of Mikeronn, as the privacy page names them. Empty when not set."""
+
+    operator_name: str
+    contact_email: str
+
+
 class AuthOptions(BaseModel):
     sign_up_open: bool
     # Only invited addresses can sign up (INVITED_EMAILS).

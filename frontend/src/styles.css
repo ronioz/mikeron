@@ -1475,6 +1475,11 @@ textarea {
   color: var(--muted);
 }
 
+/* A second such line sits close under the first. */
+.auth-switch + .auth-switch {
+  margin-top: 8px;
+}
+
 /* The account page: one setting after another, split by lines. */
 
 .settings {
@@ -1485,12 +1490,14 @@ textarea {
   margin-bottom: 28px;
 }
 
-.setting {
+.setting,
+.policy section {
   padding: 28px 0;
   border-top: 1px solid var(--line);
 }
 
-.setting h2 {
+.setting h2,
+.policy h2 {
   margin: 0 0 8px;
   font-size: 1.375rem;
   font-weight: 500;
@@ -1502,6 +1509,41 @@ textarea {
   max-width: 36rem;
   margin: 0 0 20px;
   color: var(--muted);
+}
+
+/* With nothing under it, as in "Your data", it leaves no room below. */
+.setting-intro:last-child {
+  margin-bottom: 0;
+}
+
+/* The privacy page: plain text in sections split by lines, like the account page. */
+.policy {
+  max-width: 46rem;
+  margin-top: 28px;
+}
+
+.policy p,
+.policy ul {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
+.policy :is(p, ul):last-child {
+  margin-bottom: 0;
+}
+
+.policy ul {
+  padding-left: 1.25em;
+}
+
+.policy li + li {
+  margin-top: 6px;
+}
+
+.policy strong {
+  color: var(--text);
+  font-weight: 500;
 }
 
 /* A setting with no introduction: the same room under its heading. */

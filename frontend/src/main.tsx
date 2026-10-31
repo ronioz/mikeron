@@ -10,6 +10,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { GraphsPage } from "./pages/Graphs";
 import { NotFound } from "./pages/NotFound";
 import { PortfolioPage } from "./pages/Portfolio";
+import { Privacy } from "./pages/Privacy";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SignIn } from "./pages/SignIn";
 import { SignUp } from "./pages/SignUp";
@@ -35,6 +36,10 @@ createRoot(root).render(
               <Route path="sign-up" element={<SignUp />} />
               <Route path="reset-password" element={<ResetPassword />} />
             </Route>
+          </Route>
+          {/* For everyone, signed in or not. */}
+          <Route element={<AuthLayout />}>
+            <Route path="privacy" element={<Privacy />} />
           </Route>
           {/* Everything else needs someone signed in. */}
           <Route element={<RequireAccount />}>

@@ -139,6 +139,9 @@ export function SignUp() {
       <p className="auth-switch">
         Already have an account? <Link to="/sign-in">Sign in</Link>
       </p>
+      <p className="auth-switch">
+        What Mikeronn keeps about you: <Link to="/privacy">Privacy</Link>
+      </p>
     </>
   );
 }

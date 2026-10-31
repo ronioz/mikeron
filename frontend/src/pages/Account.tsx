@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
+import { Link } from "react-router";
 
 import { useAccount } from "../account";
 import { ApiError, api, auth } from "../api";
@@ -57,7 +58,7 @@ function Messages({ outcome }: { outcome: Outcome }) {
   );
 }
 
-function Section({ title, intro, children }: { title: string; intro?: ReactNode; children: ReactNode }) {
+function Section({ title, intro, children }: { title: string; intro?: ReactNode; children?: ReactNode }) {
   return (
     <section className="setting">
       <h2>{title}</h2>
@@ -76,6 +77,15 @@ function Settings({ account }: { account: Account }) {
       <Plan account={account} />
       <Password />
       <SignOut />
+      <Section
+        title="Your data"
+        intro={
+          <>
+            What Mikeronn keeps about you, who else handles it and for how long:{" "}
+            <Link to="/privacy">Privacy</Link>
+          </>
+        }
+      />
       <DeleteAccount />
     </div>
   );

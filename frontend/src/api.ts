@@ -6,6 +6,7 @@ import type {
   Graphs,
   PlanPeriod,
   Portfolio,
+  PrivacyContact,
   ReportOutcome,
   SignedIn,
   Summary,
@@ -108,6 +109,9 @@ export const api = {
     ),
   signOutOtherDevices: () => request<void>("/me/sessions", { method: "DELETE" }),
   deleteAccount: (password: string) => request<void>("/me/delete", json("POST", { password })),
+
+  // Anyone can read this one, signed in or not.
+  privacyContact: () => request<PrivacyContact>("/privacy"),
 };
 
 /** Signing up, in and out. Codes arrive by email; see app/routers/auth.py. */
