@@ -213,7 +213,7 @@ export function SalesStat({ totals }: { totals: ShareTotals }) {
 /**
  * The line saying how fresh the prices are, or why there are none. It has a
  * clock and is brighter than the notes elsewhere, so it's seen at a glance:
- * every figure above it depends on it.
+ * every figure around it depends on it.
  */
 function PriceLine({ children }: { children: ReactNode }) {
   const theme = useTheme();

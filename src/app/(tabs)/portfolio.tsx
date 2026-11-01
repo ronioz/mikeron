@@ -36,33 +36,62 @@ type Part = "all" | Broker | "other";
 export default function PortfolioScreen() {
   const state = useApi(api.getPortfolio, REFRESH_MS);
   const [shown, show] = useState<Part>("all");
+  const parts = state.data?.by_broker ?? [];
+  const other = parts.some((part) => part.broker === null);
+  // With no broker on any trade there is nothing to tell apart, and the "Other"
+  // part goes when its last trade does.
+  const view = parts.length === 0 || (shown === "other" && !other) ? "all" : shown;
+  const part = parts.find((each) => (each.broker ?? "other") === view);
+  const totals = view === "all" ? state.data : part;
   return (
-    <Screen refresh={state}>
+    <Screen
+      refresh={state}
+      // Its key starts each view afresh: a slice picked in one may not exist in the next.
+      below={
+        totals?.positions.length ? <Details key={view} totals={totals} whole={view === "all"} /> : undefined
+      }
+    >
       <Loadable state={state}>
-        {(portfolio) => {
-          const parts = portfolio.by_broker;
-          // With no broker on any trade there is nothing to tell apart.
-          if (parts.length === 0) return <Whole portfolio={portfolio} />;
-          const other = parts.some((part) => part.broker === null);
-          // The "Other" part goes when its last trade does.
-          const view = shown === "other" && !other ? "all" : shown;
-          const part = parts.find((each) => (each.broker ?? "other") === view);
-          return (
-            <>
+        {(portfolio) => (
+          <>
+            {parts.length > 0 && (
               <View style={{ marginTop: 12 }}>
                 <BrokerSwitch view={view} other={other} onChange={show} />
               </View>
-              {view === "all" ? (
-                <Whole portfolio={portfolio} />
-              ) : (
-                // A broker with no trades yet has no part: it shows as an empty one.
-                <BrokerPart broker={view === "other" ? null : view} part={part} />
-              )}
-            </>
-          );
-        }}
+            )}
+            {view === "all" ? (
+              <Whole portfolio={portfolio} />
+            ) : (
+              // A broker with no trades yet has no part: it shows as an empty one.
+              <BrokerPart broker={view === "other" ? null : view} part={part} />
+            )}
+          </>
+        )}
       </Loadable>
     </Screen>
+  );
+}
+
+/**
+ * Everything under the dashboard, one swipe away: how fresh the prices are, the
+ * ring and the table, of the whole portfolio or of one broker's part.
+ */
+function Details({ totals, whole }: { totals: Portfolio | BrokerPortfolio; whole: boolean }) {
+  const { positions, current_value: value } = totals;
+  return (
+    <>
+      <PriceNote totals={totals} />
+      {!whole && (
+        <T tone="muted" size={14} style={{ marginTop: 12 }}>
+          Cash from sales and the money you put in are counted across all brokers together, under All.
+        </T>
+      )}
+      <HoldingsDetail
+        positions={positions}
+        priced={value !== null}
+        total={Number(value ?? totals.invested)}
+      />
+    </>
   );
 }
 
@@ -163,15 +192,6 @@ function BrokerPart({ broker, part }: { broker: Broker | null; part: BrokerPortf
           <StatValue>{positions.length}</StatValue>
         </Stat>
       </Stats>
-      <PriceNote totals={part} />
-      <T tone="muted" size={14} style={{ marginTop: 12 }}>
-        Cash from sales and the money you put in are counted across all brokers together, under All.
-      </T>
-      <HoldingsDetail
-        positions={positions}
-        priced={value !== null}
-        total={Number(value ?? part.invested)}
-      />
     </>
   );
 }
@@ -215,7 +235,6 @@ function NoHoldings({ portfolio }: { portfolio: Portfolio }) {
 }
 
 function Holdings({ portfolio }: { portfolio: Portfolio }) {
-  const { positions } = portfolio;
   return (
     <>
       <ValueHero totals={portfolio} />
@@ -225,15 +244,9 @@ function Holdings({ portfolio }: { portfolio: Portfolio }) {
         {portfolio.sale_count > 0 && <CashStat totals={portfolio} />}
         {isMoney(portfolio.fees) && <FeesStat totals={portfolio} />}
         <Stat label="Holdings">
-          <StatValue>{positions.length}</StatValue>
+          <StatValue>{portfolio.positions.length}</StatValue>
         </Stat>
       </Stats>
-      <PriceNote totals={portfolio} />
-      <HoldingsDetail
-        positions={positions}
-        priced={portfolio.current_value !== null}
-        total={Number(portfolio.current_value ?? portfolio.invested)}
-      />
     </>
   );
 }

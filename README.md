@@ -18,9 +18,12 @@ as the website, so a journal is the same on every device:
 ## What's here so far
 
 - Signing in, with the emailed code for an address not confirmed yet.
-- The Journal: the headline figure, the stats, and each year's trades, which
-  open when tapped.
-- The Portfolio: all brokers or one at a time, the ring and the holdings.
+- The Journal: the headline figure and the stats alone on the first screen, then
+  one swipe to the time of the prices and each year's trades, which open when
+  tapped.
+- The Portfolio: all brokers or one at a time, with the same two steps: the
+  headline figure and the stats first, then one swipe to the time of the prices,
+  the ring and the holdings.
 - Account: the email, the plan, and signing out.
 
 Everything else is on the website for now, and the app links to it where it

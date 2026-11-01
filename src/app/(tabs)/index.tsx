@@ -15,12 +15,12 @@ import { REFRESH_MS, useApi } from "@/lib/useApi";
 
 export default function JournalScreen() {
   const state = useApi(() => Promise.all([api.getSummary(), api.listTrades()]), REFRESH_MS);
+  const [summary, trades] = state.data ?? [];
+  const list = summary && trades?.length ? <Trades summary={summary} trades={trades} /> : undefined;
   return (
-    <Screen refresh={state}>
+    <Screen refresh={state} below={list}>
       <Loadable state={state}>
-        {([summary, trades]) =>
-          trades.length === 0 ? <NoTrades /> : <Journal summary={summary} trades={trades} />
-        }
+        {([summary]) => (list ? <Dashboard summary={summary} /> : <NoTrades />)}
       </Loadable>
     </Screen>
   );
@@ -61,9 +61,9 @@ function groupByYear(trades: Trade[]): Map<number, Trade[]> {
   return groups;
 }
 
-function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
+/** What the journal opens on, with the first screen to itself: where things stand now. */
+function Dashboard({ summary }: { summary: Summary }) {
   const theme = useTheme();
-  const byYear = groupByYear(trades);
   const planned = Number(summary.plan_amount);
   const progress = planned > 0 ? Math.min(Number(summary.this_period) / planned, 1) : 0;
 
@@ -112,24 +112,35 @@ function Journal({ summary, trades }: { summary: Summary; trades: Trade[] }) {
           )}
         </Stat>
       </Stats>
-      <PriceNote totals={summary} />
-
-      {summary.years.map((total) => (
-        <View key={total.year} style={{ marginTop: 36 }}>
-          <View style={{ marginBottom: 8 }}>
-            <T size={24} weight="medium" style={{ letterSpacing: -0.24, lineHeight: 29 }}>
-              {total.year}
-            </T>
-            <YearSummary total={total} />
-          </View>
-          {(byYear.get(total.year) ?? []).map((trade) => (
-            <View key={trade.id} style={{ borderTopWidth: 1, borderColor: theme.lineSoft }}>
-              <TradeItem trade={trade} />
-            </View>
-          ))}
-        </View>
-      ))}
     </>
+  );
+}
+
+/** Every trade, a year at a time, under the line saying how fresh their values are. */
+function Trades({ summary, trades }: { summary: Summary; trades: Trade[] }) {
+  const theme = useTheme();
+  const byYear = groupByYear(trades);
+  return (
+    <View style={{ gap: 20 }}>
+      <PriceNote totals={summary} />
+      <View style={{ gap: 36 }}>
+        {summary.years.map((total) => (
+          <View key={total.year}>
+            <View style={{ marginBottom: 8 }}>
+              <T size={24} weight="medium" style={{ letterSpacing: -0.24, lineHeight: 29 }}>
+                {total.year}
+              </T>
+              <YearSummary total={total} />
+            </View>
+            {(byYear.get(total.year) ?? []).map((trade) => (
+              <View key={trade.id} style={{ borderTopWidth: 1, borderColor: theme.lineSoft }}>
+                <TradeItem trade={trade} />
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
