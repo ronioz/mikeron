@@ -5,7 +5,7 @@ import { Button } from "@/components/Button";
 import { Loadable } from "@/components/Loadable";
 import { Screen } from "@/components/Screen";
 import { T } from "@/components/T";
-import { api, SERVER } from "@/lib/api";
+import { api, WEBSITE } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { PERIODS } from "@/lib/plan";
 import { useSession } from "@/lib/session";
@@ -59,12 +59,12 @@ export default function AccountScreen() {
           <Button
             secondary
             label="Account settings"
-            onPress={() => void Linking.openURL(`${SERVER}/account`)}
+            onPress={() => void Linking.openURL(`${WEBSITE}/account`)}
           />
           <Button
             secondary
             label="Privacy"
-            onPress={() => void Linking.openURL(`${SERVER}/privacy`)}
+            onPress={() => void Linking.openURL(`${WEBSITE}/privacy`)}
           />
         </View>
       </Setting>

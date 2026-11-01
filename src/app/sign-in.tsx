@@ -5,14 +5,14 @@ import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { Screen } from "@/components/Screen";
 import { T, TextLink } from "@/components/T";
-import { ApiError, SERVER, auth } from "@/lib/api";
+import { ApiError, WEBSITE, auth } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { SignedIn } from "@/lib/types";
 import { useApi, useSlow } from "@/lib/useApi";
 
 const TAGLINE = "A personal trade journal: why you bought, what you expected, and how it went.";
 
-const onWebsite = (path: string) => () => void Linking.openURL(`${SERVER}${path}`);
+const onWebsite = (path: string) => () => void Linking.openURL(`${WEBSITE}${path}`);
 
 /** The key from a sign-in. The server only leaves it out for a browser, which this isn't. */
 function keyOf(result: SignedIn): string {

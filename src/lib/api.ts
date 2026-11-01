@@ -11,6 +11,9 @@ import type {
 /** The server, which is also the website. Set EXPO_PUBLIC_API_URL to try another. */
 export const SERVER = process.env.EXPO_PUBLIC_API_URL ?? "https://mikeronn.onrender.com";
 
+/** The website, for what the app leaves to it. It's the server, except in a browser preview. */
+export const WEBSITE = process.env.EXPO_PUBLIC_WEBSITE_URL ?? SERVER;
+
 // The free host sleeps when idle and takes up to a minute to wake, so a slow
 // answer isn't a failed one.
 const TIMEOUT_MS = 75_000;

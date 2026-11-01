@@ -28,19 +28,52 @@ matters: creating an account, resetting a password, changing the plan, deleting
 an account, and the privacy page. Trades are added and edited there too, and the
 Graphs page and the screenshot reader aren't in the app yet.
 
-## Trying it on a phone
+## Trying it
+
+The app uses the hosted server, so sign in as you do on the website. The hosted
+server sleeps when nobody's using it, so a first sign-in can take a minute. The
+app says so while it waits.
+
+### On a phone
 
 No Android tools are needed for this.
 
-1. Install **Expo Go** from Google Play on the phone.
+1. Install **Expo Go** on the phone, from Google Play (or the App Store: an
+   iPhone runs the app too).
 2. On the computer, in this folder: `npm install`, then `npx expo start`.
-3. Scan the QR code with Expo Go. The phone and the computer need to be on the
-   same Wi-Fi.
+3. Scan the QR code with Expo Go, or with the camera on an iPhone. The phone and
+   the computer need to be on the same Wi-Fi.
 
-The app uses the hosted server, so sign in as you do on the website. To use
-another, such as one on your computer, set `EXPO_PUBLIC_API_URL` when starting.
-The hosted server sleeps when nobody's using it, so a first sign-in can take a
-minute. The app says so while it waits.
+To use another server, set `EXPO_PUBLIC_API_URL` when starting. A phone can't
+reach `localhost`, so that needs the computer's address on the Wi-Fi.
+
+### In a browser, with no phone
+
+```sh
+npm run preview
+```
+
+Then open <http://127.0.0.1:8090> and turn on the browser's phone view (open the
+developer tools, then the device toolbar). Ctrl+C stops it.
+
+This is a web build of the app, served from this computer, and it passes its
+requests on to the server. `npx expo start --web` can't do that: a browser won't
+let a page on `localhost` call another site, and the server refuses cross-site
+requests, so it stops at the sign-in screen.
+
+To see the copy on this computer instead, with the Docker app running:
+`PREVIEW_SERVER=http://127.0.0.1:8000 npm run preview`.
+
+It's quick for how the screens look and behave, but it isn't Android. Only a
+phone or an emulator tries the protected storage, the keyboard, pulling down to
+refresh, and how fonts and spacing come out on Android.
+
+### On an Android emulator
+
+This is real Android on the computer, and it needs Android Studio. Expo's guide
+is at <https://docs.expo.dev/workflow/android-studio-emulator/>. The Java and
+Watchman steps there can be skipped for Expo Go, as nothing gets compiled. With a
+virtual device running, `npx expo start --android` opens the app on it.
 
 ## Checking a change
 
@@ -50,10 +83,6 @@ npm run typecheck
 npx expo-doctor
 npx expo export --platform android   # builds the app's code, without a phone
 ```
-
-`npm run web` shows the app in a browser, which is quick for layout. It isn't a
-phone, though: only there does the sign-in key use the protected storage. See
-`src/lib/token.ts` and `src/lib/token.web.ts`.
 
 ## How it's laid out
 
